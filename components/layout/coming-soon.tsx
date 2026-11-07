@@ -11,7 +11,7 @@ export function ComingSoon({
   return (
     <section className="flex flex-col gap-2 py-10">
       <h1 className="text-2xl font-semibold">{title}</h1>
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-muted">
         준비 중 · 담당 {owner} · {day}
       </p>
     </section>
