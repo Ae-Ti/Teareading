@@ -1,10 +1,40 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database";
+import { isAuthConfigured } from "@/lib/auth/config";
+import { isAuthPath, isProtectedPath, safeNextPath } from "@/lib/auth/paths";
+
+function loginResponse(request: NextRequest) {
+  const url = request.nextUrl.clone();
+  url.pathname = "/login";
+  url.search = "";
+  url.searchParams.set(
+    "next",
+    request.nextUrl.pathname + request.nextUrl.search,
+  );
+  return NextResponse.redirect(url, 303);
+}
+
+function preserveSession(source: NextResponse, target: NextResponse) {
+  source.cookies.getAll().forEach((cookie) => target.cookies.set(cookie));
+  for (const name of ["cache-control", "expires", "pragma"]) {
+    const value = source.headers.get(name);
+    if (value) target.headers.set(name, value);
+  }
+  target.headers.set("Cache-Control", "private, no-store");
+  return target;
+}
 
 // 매 요청마다 세션을 확인·갱신하고, 갱신된 쿠키를 응답에 실어 보낸다.
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
+
+  if (!isAuthConfigured()) {
+    // 환경변수가 없어도 공개 페이지는 표시하고, 보호 페이지는 로그인으로 보낸다.
+    return isProtectedPath(request.nextUrl.pathname)
+      ? preserveSession(response, loginResponse(request))
+      : response;
+  }
 
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,13 +61,33 @@ export async function updateSession(request: NextRequest) {
   );
 
   // createServerClient와 getClaims 사이에 다른 코드를 넣지 않는다 (세션 갱신이 꼬임).
-  const { data } = await supabase.auth.getClaims();
-  const userId = data?.claims?.sub ?? null;
+  let userId: string | null = null;
+  try {
+    const { data, error } = await supabase.auth.getClaims();
+    if (!error) userId = data?.claims?.sub ?? null;
+  } catch {
+    // 인증 서버 연결 실패 시에도 보호 페이지를 통과시키지 않는다.
+  }
 
-  // TODO(웅싯, D2): 로그인 필요 경로 보호.
-  // userId가 없고 보호 경로면 `/login?next=<원래 경로>`로 리다이렉트한다.
-  // 리다이렉트 응답을 만들 때는 위 response의 쿠키를 그대로 복사해야 세션이 유지된다.
-  void userId;
+  const pathname = request.nextUrl.pathname;
+  if (!userId && isProtectedPath(pathname)) {
+    return preserveSession(response, loginResponse(request));
+  }
+  if (
+    userId &&
+    isAuthPath(pathname) &&
+    (request.method === "GET" || request.method === "HEAD")
+  ) {
+    const url = request.nextUrl.clone();
+    const next = safeNextPath(request.nextUrl.searchParams.get("next"));
+    return preserveSession(
+      response,
+      NextResponse.redirect(new URL(next, url.origin)),
+    );
+  }
+  if (isProtectedPath(pathname) || isAuthPath(pathname)) {
+    response.headers.set("Cache-Control", "private, no-store");
+  }
 
   return response;
 }
