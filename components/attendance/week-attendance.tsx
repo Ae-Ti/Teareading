@@ -70,31 +70,34 @@ export function WeekAttendance({
         })}
       </ol>
 
-      <div
-        className="flex h-24 items-end gap-1.5 border-t-2 border-ink pt-4"
-        aria-hidden
-      >
-        {week.map((d) => {
-          const sec = byDay.get(d)?.focus_seconds ?? 0;
-          return (
-            <div
-              key={d}
-              className={cn(
-                "flex-1 rounded-t-sm",
-                sec > 0
-                  ? "border-2 border-ink bg-hojicha"
-                  : "border-b-2 border-ink",
-              )}
-              style={{
-                height:
+      {/* 몰입 시간이 없는 주에는 빈 막대 대신 아래 요약 문장만 보여 준다 */}
+      {total > 0 && (
+        <div
+          className="flex h-24 items-end gap-1.5 border-t-2 border-ink pt-4"
+          aria-hidden
+        >
+          {week.map((d) => {
+            const sec = byDay.get(d)?.focus_seconds ?? 0;
+            return (
+              <div
+                key={d}
+                className={cn(
+                  "flex-1 rounded-t-sm",
                   sec > 0
-                    ? `${Math.max(12, (sec / maxSeconds) * 100)}%`
-                    : undefined,
-              }}
-            />
-          );
-        })}
-      </div>
+                    ? "border-2 border-ink bg-hojicha"
+                    : "border-b-2 border-ink",
+                )}
+                style={{
+                  height:
+                    sec > 0
+                      ? `${Math.max(12, (sec / maxSeconds) * 100)}%`
+                      : undefined,
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-2 text-sm">
         <p className="text-ink-muted">

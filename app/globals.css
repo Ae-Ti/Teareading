@@ -117,8 +117,6 @@ body {
   padding: 1rem 1.25rem;
 }
 .guide-prose table {
-  display: block;
-  overflow-x: auto;
   width: 100%;
   border-collapse: collapse;
   border: var(--tr-border-width) solid var(--tr-ink);
@@ -130,6 +128,11 @@ body {
   border: 1px solid var(--tr-ink-subtle);
   padding: 0.5rem 0.75rem;
   text-align: left;
+  vertical-align: top;
+}
+/* 첫 열(차 이름 등)만 줄바꿈하지 않고, 나머지는 좁은 화면에서 줄바꿈한다 */
+.guide-prose th,
+.guide-prose td:first-child {
   white-space: nowrap;
 }
 .guide-prose th {
