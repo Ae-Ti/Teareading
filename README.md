@@ -28,6 +28,7 @@ npm run dev                 # http://localhost:3000
 npm run test:auth       # 인증 폼 검증 단위 테스트
 npm run test:auth:db    # 인증·프로필·이벤트 권한
 npm run test:rls        # 기록·타이머·모임·찻집 RLS (다른 계정·비로그인 접근 차단)
+npm run test:space      # 찻집 맵·경로 찾기·캐릭터 값 검증 (Supabase 없이)
 npm run test:auth:e2e   # 브라우저 E2E (처음엔 npx playwright install chromium)
 ```
 
@@ -104,6 +105,7 @@ const userId = data?.claims?.sub;
 | `groups`, `group_members` | 로그인 사용자 조회. 생성 시 모임장 자동 등록, 가입은 본인만, 탈퇴는 본인·내보내기는 모임장, 모임장은 탈퇴 불가 | 태일 |
 | `is_group_member(uuid)`, `is_group_owner(uuid)` | RLS용 권한 확인 함수. **단체 채팅 RLS에서 `is_group_member`를 쓰면 된다** | 태일 |
 | `space_visits` | 찻집 체류 이력(분석용). 실시간 입장자는 Realtime Presence 채널 `space:teahouse` | 태일 |
+| `space_avatars` | 찻집 캐릭터 꾸미기 값. 본인만 조회·저장. 다른 사람 캐릭터는 Presence로 받는다 | 태일 |
 
 회원가입 시 닉네임은 `supabase.auth.signUp({ email, password, options: { data: { nickname } } })`로 넘긴다.
 
@@ -117,7 +119,8 @@ const userId = data?.claims?.sub;
 
 - 토큰: `app/globals.css` (한지·먹·말차·호지차·홍차·유자, 2px 테두리, 각진 그림자)
 - 글꼴: 한글·본문은 Noto Sans KR, 숫자·영문 강조는 JetBrains Mono (`font-mono tabular-nums`). 모두 OFL
-- 시안 확인: `/design`, `/design/dashboard`
+- 시안 확인: `/design`, `/design/dashboard`, `/design/space`(찻집 캐릭터 도트)
+- 찻집 픽셀 그래픽은 모두 코드로 그린 원본이다 (`components/space/pixel/`). 외부 이미지·스프라이트를 가져오지 않는다. 기획: [`docs/taeil/space-pixel-prd.md`](docs/taeil/space-pixel-prd.md)
 
 ## Git 규칙
 

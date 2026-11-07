@@ -57,6 +57,7 @@ test("태일 담당 테이블 RLS 점검", async (t) => {
       "groups",
       "group_members",
       "space_visits",
+      "space_avatars",
       "events",
     ] as const) {
       const res = await c.from(table).select("*").limit(1);
@@ -294,6 +295,44 @@ test("태일 담당 테이블 RLS 점검", async (t) => {
       const del = await a.from("profiles").delete().eq("id", idA).select("id");
       assertBlocked(del, "본인 프로필 삭제(정책 없음)");
     });
+
+    await t.test(
+      "찻집 캐릭터: 남의 캐릭터 조회·수정·대리 저장 불가",
+      async () => {
+        const look = {
+          skin: 0,
+          hairStyle: "short",
+          hairColor: 0,
+          top: 0,
+          bottom: 0,
+          hat: "none",
+        };
+        const own = await a
+          .from("space_avatars")
+          .upsert({ user_id: idA, look });
+        assert.equal(own.error, null);
+        assertBlocked(
+          await b.from("space_avatars").select("look").eq("user_id", idA),
+          "B가 A의 캐릭터 조회",
+        );
+        assertBlocked(
+          await b
+            .from("space_avatars")
+            .update({ look: { ...look, hat: "cap" } })
+            .eq("user_id", idA)
+            .select("user_id"),
+          "B가 A의 캐릭터 수정",
+        );
+        const forged = await b
+          .from("space_avatars")
+          .insert({ user_id: idA, look });
+        assert.ok(forged.error, "B가 A 이름으로 캐릭터 저장");
+        const huge = await b
+          .from("space_avatars")
+          .upsert({ user_id: idB, look: { pad: "x".repeat(600) } });
+        assert.ok(huge.error, "512바이트 넘는 값 저장");
+      },
+    );
 
     await t.test("권한 확인 함수는 비로그인이 호출할 수 없다", async () => {
       const res = await anon.rpc("is_group_member", {
