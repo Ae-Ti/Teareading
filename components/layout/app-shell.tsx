@@ -14,9 +14,9 @@ const NAV_ITEMS = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-neutral-200">
+      <header className="border-b-2 border-ink bg-surface">
         <nav className="mx-auto flex max-w-5xl items-center gap-4 overflow-x-auto px-4 py-3 text-sm">
-          <Link href="/" className="font-semibold whitespace-nowrap">
+          <Link href="/" className="font-mono font-extrabold whitespace-nowrap">
             티어리딩
           </Link>
           {NAV_ITEMS.map((item) => (

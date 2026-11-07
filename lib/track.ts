@@ -26,7 +26,7 @@ export type Device = "desktop" | "mobile";
 const MOBILE_MAX_WIDTH = 767;
 
 // 브라우저에서만 화면 너비로 판단한다. 서버에서 부를 때는 device를 직접 넘긴다.
-function detectDevice(): Device | null {
+export function detectDevice(): Device | null {
   if (typeof window === "undefined") return null;
   return window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH}px)`).matches
     ? "mobile"

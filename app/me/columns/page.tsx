@@ -1,5 +1,7 @@
-import { ComingSoon } from "@/components/layout/coming-soon";
+import { RecordListPage } from "@/components/records/record-list";
+
+export const metadata = { title: "내 기록 · 티어리딩" };
 
 export default function Page() {
-  return <ComingSoon title="차 칼럼" owner="태일" day="D3" />;
+  return <RecordListPage kind="columns" />;
 }
