@@ -7,7 +7,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // 정적 파일과 이미지는 제외
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // 실제 프레임워크 정적 경로만 제외한다. /groups/foo.png 같은 보호 경로도 검사한다.
+    "/((?!_next/|favicon.ico$).*)",
   ],
 };

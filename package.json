@@ -9,7 +9,10 @@
     "lint": "eslint",
     "db:types": "supabase gen types typescript --local > types/database.ts",
     "format": "prettier --write .",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test:auth": "node --import tsx --test tests/auth.test.ts",
+    "test:auth:db": "node --import tsx --test tests/auth.db.test.ts",
+    "test:auth:e2e": "playwright test --config tests/auth.playwright.config.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -19,6 +22,7 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -28,6 +32,7 @@
     "prettier": "^3.9.10",
     "supabase": "^2.122.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
