@@ -22,6 +22,15 @@ cp .env.example .env.local  # 위 값을 채워 넣는다
 npm run dev                 # http://localhost:3000
 ```
 
+테스트 (로컬 Supabase 필요):
+
+```bash
+npm run test:auth       # 인증 폼 검증 단위 테스트
+npm run test:auth:db    # 인증·프로필·이벤트 권한
+npm run test:rls        # 기록·타이머·모임·찻집 RLS (다른 계정·비로그인 접근 차단)
+npm run test:auth:e2e   # 브라우저 E2E (처음엔 npx playwright install chromium)
+```
+
 - 로컬 Supabase Studio: http://127.0.0.1:54323
 - 로컬에서 보낸 인증 메일 확인(Mailpit): http://127.0.0.1:54324
 - 원격(공용 개발) Supabase를 쓰려면 `.env.local`에 원격 프로젝트 값을 넣으면 된다.
@@ -103,7 +112,6 @@ const userId = data?.claims?.sub;
 - `requireUser(next)` (`lib/supabase/user.ts`): 서버 컴포넌트·서버 함수에서 로그인 확인. 비로그인이면 로그인 화면으로 보내고 `next`로 복귀
 - `TrackView` (`components/track-view.tsx`): 화면 열람 이벤트를 한 번 기록
 - `lib/time.ts`: KST 날짜 계산 (출석·주간 통계)
-- 개발 중에는 `/dev/login`(개발 전용 임시 로그인)을 쓴다. 웅싯의 `/login`이 나오면 `app/dev/`와 `lib/supabase/user.ts`의 분기를 지운다
 
 ## 디자인 시안
 

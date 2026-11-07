@@ -14,7 +14,7 @@ export function RecordListPage({ kind }: { kind: RecordKind }) {
     <div className="flex flex-col gap-6 py-6 md:py-10">
       <div className="flex items-end justify-between gap-4">
         <h1 className="text-2xl font-bold md:text-3xl">내 기록</h1>
-        <LinkButton href={`${config.path}/new`} size="sm">
+        <LinkButton href={`${config.path}/new`} size="sm" className="shrink-0">
           새 {config.label}
         </LinkButton>
       </div>
