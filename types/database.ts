@@ -62,6 +62,79 @@ export type Database = {
         };
         Relationships: [];
       };
+      group_members: {
+        Row: {
+          group_id: string;
+          joined_at: string;
+          role: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          group_id: string;
+          joined_at?: string;
+          role?: string;
+          user_id: string;
+        };
+        Update: {
+          group_id?: string;
+          joined_at?: string;
+          role?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_members_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      groups: {
+        Row: {
+          created_at: string;
+          description: string;
+          id: string;
+          name: string;
+          owner_id: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          description?: string;
+          id?: string;
+          name: string;
+          owner_id?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          description?: string;
+          id?: string;
+          name?: string;
+          owner_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "groups_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           avatar_url: string | null;
@@ -90,12 +163,211 @@ export type Database = {
         };
         Relationships: [];
       };
+      reading_logs: {
+        Row: {
+          body: string;
+          book_title: string;
+          created_at: string;
+          id: string;
+          updated_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          body: string;
+          book_title: string;
+          created_at?: string;
+          id?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          body?: string;
+          book_title?: string;
+          created_at?: string;
+          id?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reading_logs_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      space_visits: {
+        Row: {
+          entered_at: string;
+          id: string;
+          left_at: string | null;
+          space_id: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          entered_at?: string;
+          id?: string;
+          left_at?: string | null;
+          space_id?: string;
+          user_id?: string;
+        };
+        Update: {
+          entered_at?: string;
+          id?: string;
+          left_at?: string | null;
+          space_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "space_visits_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tea_columns: {
+        Row: {
+          body: string;
+          created_at: string;
+          id: string;
+          title: string;
+          updated_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          body: string;
+          created_at?: string;
+          id?: string;
+          title: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          body?: string;
+          created_at?: string;
+          id?: string;
+          title?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tea_columns_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      timer_sessions: {
+        Row: {
+          activity: string;
+          ended_at: string | null;
+          id: string;
+          started_at: string;
+          status: string;
+          target_seconds: number;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          activity: string;
+          ended_at?: string | null;
+          id?: string;
+          started_at?: string;
+          status?: string;
+          target_seconds: number;
+          user_id: string;
+        };
+        Update: {
+          activity?: string;
+          ended_at?: string | null;
+          id?: string;
+          started_at?: string;
+          status?: string;
+          target_seconds?: number;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "timer_sessions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
-      [_ in never]: never;
+      attendance_days: {
+        Row: {
+          day: string | null;
+          focus_seconds: number | null;
+          sessions: number | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Relationships: [
+          {
+            foreignKeyName: "timer_sessions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
+      finish_timer: {
+        Args: { p_id: string; p_status: string };
+        Returns: {
+          activity: string;
+          ended_at: string | null;
+          id: string;
+          started_at: string;
+          status: string;
+          target_seconds: number;
+          user_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "timer_sessions";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      is_group_member: { Args: { p_group_id: string }; Returns: boolean };
+      is_group_owner: { Args: { p_group_id: string }; Returns: boolean };
       is_nickname_available: { Args: { p_nickname: string }; Returns: boolean };
+      start_timer: {
+        Args: { p_activity: string; p_target_seconds: number };
+        Returns: {
+          activity: string;
+          ended_at: string | null;
+          id: string;
+          started_at: string;
+          status: string;
+          target_seconds: number;
+          user_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "timer_sessions";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
     };
     Enums: {
       [_ in never]: never;

@@ -83,14 +83,33 @@ const userId = data?.claims?.sub;
 
 ## 현재 스키마
 
-| 테이블/함수 | 내용 |
-|---|---|
-| `profiles` | 가입 시 트리거로 자동 생성. 닉네임 2~20자, 대소문자 무시 중복 불가. 조회는 로그인 사용자 전체, 수정은 본인만 |
-| `is_nickname_available(text)` | 가입 전 닉네임 중복 확인 RPC (비로그인 호출 가능) |
-| `events` | 분석 이벤트. insert만 허용 |
-| `set_updated_at()` | `updated_at` 자동 갱신 트리거 함수. 새 테이블에서 재사용 |
+| 테이블/함수 | 내용 | 소유 |
+|---|---|---|
+| `profiles` | 가입 시 트리거로 자동 생성. 닉네임 2~20자, 대소문자 무시 중복 불가. 조회는 로그인 사용자 전체, 수정은 본인만 | 웅싯 |
+| `is_nickname_available(text)` | 가입 전 닉네임 중복 확인 RPC (비로그인 호출 가능) | 웅싯 |
+| `events` | 분석 이벤트. insert만 허용 | 태일 |
+| `set_updated_at()` | `updated_at` 자동 갱신 트리거 함수. 새 테이블에서 재사용 | 공용 |
+| `timer_sessions` | 본인만 조회. 쓰기는 `start_timer` / `finish_timer` RPC로만 (서버 시각 기준, 사용자당 실행 중 1개, 중복 종료 무시, 1분 미만 완료는 중단 처리) | 태일 |
+| `attendance_days` (뷰) | 완료 타이머를 KST 날짜로 묶은 출석. `timer_sessions` RLS를 따름 | 태일 |
+| `reading_logs`, `tea_columns` | 본인만 CRUD | 태일 |
+| `groups`, `group_members` | 로그인 사용자 조회. 생성 시 모임장 자동 등록, 가입은 본인만, 탈퇴는 본인·내보내기는 모임장, 모임장은 탈퇴 불가 | 태일 |
+| `is_group_member(uuid)`, `is_group_owner(uuid)` | RLS용 권한 확인 함수. **단체 채팅 RLS에서 `is_group_member`를 쓰면 된다** | 태일 |
+| `space_visits` | 찻집 체류 이력(분석용). 실시간 입장자는 Realtime Presence 채널 `space:teahouse` | 태일 |
 
 회원가입 시 닉네임은 `supabase.auth.signUp({ email, password, options: { data: { nickname } } })`로 넘긴다.
+
+## 공용 헬퍼
+
+- `requireUser(next)` (`lib/supabase/user.ts`): 서버 컴포넌트·서버 함수에서 로그인 확인. 비로그인이면 로그인 화면으로 보내고 `next`로 복귀
+- `TrackView` (`components/track-view.tsx`): 화면 열람 이벤트를 한 번 기록
+- `lib/time.ts`: KST 날짜 계산 (출석·주간 통계)
+- 개발 중에는 `/dev/login`(개발 전용 임시 로그인)을 쓴다. 웅싯의 `/login`이 나오면 `app/dev/`와 `lib/supabase/user.ts`의 분기를 지운다
+
+## 디자인 시안
+
+- 토큰: `app/globals.css` (한지·먹·말차·호지차·홍차·유자, 2px 테두리, 각진 그림자)
+- 글꼴: 한글·본문은 Noto Sans KR, 숫자·영문 강조는 JetBrains Mono (`font-mono tabular-nums`). 모두 OFL
+- 시안 확인: `/design`, `/design/dashboard`
 
 ## Git 규칙
 
