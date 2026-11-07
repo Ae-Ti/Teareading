@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/components/layout/coming-soon";
+import { RecordDetailPage } from "@/components/records/record-detail";
 
-export default function Page() {
-  return <ComingSoon title="독서기록 상세" owner="태일" day="D3" />;
+export default function Page(props: PageProps<"/me/reading/[id]">) {
+  return <RecordDetailPage kind="reading" params={props.params} />;
 }

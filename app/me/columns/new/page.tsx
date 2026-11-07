@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/components/layout/coming-soon";
+import { NewRecordPage } from "@/components/records/record-form-page";
 
 export default function Page() {
-  return <ComingSoon title="차 칼럼 작성" owner="태일" day="D3" />;
+  return <NewRecordPage kind="columns" />;
 }
