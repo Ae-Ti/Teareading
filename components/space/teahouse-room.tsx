@@ -2,49 +2,204 @@
 
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { enterSpace, leaveSpace } from "@/app/space/actions";
-import { MiniAvatar } from "@/components/groups/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
+import { defaultLook, parseLook, type Look } from "@/lib/space/look";
+import {
+  isWalkable,
+  seatAt,
+  seatById,
+  SPAWN,
+  type Dir,
+  type Point,
+} from "@/lib/space/map";
+import { findPath, isValidPath, nearestWalkable } from "@/lib/space/path";
 import { createClient } from "@/lib/supabase/client";
 import { detectDevice } from "@/lib/track";
-import { SPACE_CHANNEL, type SpacePresence } from "./presence";
+import { AvatarEditor } from "./avatar-editor";
+import { TeahouseScene } from "./pixel/scene";
+import {
+  MOVE_EVENT,
+  SPACE_CHANNEL,
+  type MoveMessage,
+  type SpacePresence,
+} from "./presence";
 
 type Status = "connecting" | "ready" | "entering" | "inside" | "error";
 
-// 자리 배치 (찻집 그림 위 좌표, %)
-const SEATS = [
-  { left: 22, top: 58 },
-  { left: 50, top: 50 },
-  { left: 78, top: 58 },
-  { left: 34, top: 78 },
-  { left: 66, top: 78 },
-  { left: 12, top: 82 },
-  { left: 88, top: 82 },
-  { left: 50, top: 86 },
-];
+const KEYS: Record<string, Dir> = {
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  w: "up",
+  s: "down",
+  a: "left",
+  d: "right",
+};
+const DELTA: Record<Dir, Point> = {
+  up: { x: 0, y: -1 },
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 },
+};
+
+function timerStatus(
+  timer: SpacePresence["timer"],
+  startedAt: string | null | undefined,
+  now: number,
+) {
+  if (!timer) return "";
+  const icon = timer === "tea" ? "☕" : "📖";
+  if (!startedAt) return `${icon} ${timer === "tea" ? "다도" : "독서"} 중`;
+  const min = Math.max(
+    0,
+    Math.floor((now - new Date(startedAt).getTime()) / 60000),
+  );
+  return `${icon} ${min}분`;
+}
 
 export function TeahouseRoom({
   me,
+  initialLook,
   timer,
+  timerStartedAt,
 }: {
   me: Pick<SpacePresence, "user_id" | "nickname" | "avatar_url">;
+  initialLook: Look;
   timer: SpacePresence["timer"];
+  timerStartedAt: string | null;
 }) {
   const [status, setStatus] = useState<Status>("connecting");
   const [people, setPeople] = useState<SpacePresence[]>([]);
   const [attempt, setAttempt] = useState(0);
+  const [look, setLook] = useState(initialLook);
+  const [editing, setEditing] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<TeahouseScene | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const visitRef = useRef<string | null>(null);
   const insideRef = useRef(false);
+  const othersRef = useRef<SpacePresence[]>([]);
+  const myStateRef = useRef<SpacePresence | null>(null);
+  const trackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 채널 연결은 입장 전부터 한다 (지금 몇 명 있는지 보여주기 위해). 입장 = track, 퇴장 = untrack.
+  const showToast = useCallback((text: string) => {
+    setToast(text);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
+  }, []);
+
+  // 내 상태(위치·자리·캐릭터)를 Presence에 반영. 연달아 바뀌면 마지막 것만 보낸다.
+  const pushState = useCallback((patch: Partial<SpacePresence>) => {
+    if (!myStateRef.current) return;
+    myStateRef.current = { ...myStateRef.current, ...patch };
+    if (trackTimer.current) clearTimeout(trackTimer.current);
+    trackTimer.current = setTimeout(() => {
+      if (insideRef.current && myStateRef.current)
+        void channelRef.current?.track(myStateRef.current);
+    }, 300);
+  }, []);
+
+  const seatTakenByOther = useCallback(
+    (seatId: string) => othersRef.current.some((p) => p.seat === seatId),
+    [],
+  );
+
+  // 내 캐릭터를 경로대로 걷게 하고 다른 사람에게 경로를 보낸다
+  const moveMe = useCallback(
+    (target: Point) => {
+      const scene = sceneRef.current;
+      if (!scene || !insideRef.current) return;
+      const from = scene.planStart(me.user_id);
+      if (!from) return;
+      const path = findPath(from, target);
+      if (!path) return;
+      scene.walk(me.user_id, from, path, true);
+      if (myStateRef.current?.seat) pushState({ seat: null });
+      void channelRef.current?.send({
+        type: "broadcast",
+        event: MOVE_EVENT,
+        payload: { user_id: me.user_id, from, path } satisfies MoveMessage,
+      });
+    },
+    [me.user_id, pushState],
+  );
+
+  // 장면은 한 번만 만든다
+  useEffect(() => {
+    const scene = new TeahouseScene(canvasRef.current!, overlayRef.current!, {
+      onTap: (tile) => {
+        if (!insideRef.current) return;
+        const seat = seatAt(tile.x, tile.y);
+        if (seat && seatTakenByOther(seat.id)) {
+          showToast("이미 다른 분이 앉아 있어요");
+          return;
+        }
+        const from = sceneRef.current?.planStart(me.user_id) ?? SPAWN;
+        const target = seat ? tile : nearestWalkable(tile, from);
+        if (target) moveMe(target);
+      },
+      onArrive: (tile, dir) => {
+        const seat = seatAt(tile.x, tile.y);
+        if (seat && !seatTakenByOther(seat.id)) {
+          sceneRef.current?.sit(me.user_id, seat.face);
+          pushState({ pos: tile, dir: seat.face, seat: seat.id });
+        } else {
+          if (seat) showToast("이미 다른 분이 앉아 있어요");
+          pushState({ pos: tile, dir, seat: null });
+        }
+      },
+    });
+    sceneRef.current = scene;
+    return () => {
+      scene.destroy();
+      sceneRef.current = null;
+    };
+  }, [me.user_id, moveMe, pushState, seatTakenByOther, showToast]);
+
+  // 다른 사람 캐릭터를 Presence 상태에 맞춘다
+  const syncOthers = useCallback(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const now = Date.now();
+    const present = new Set<string>();
+    for (const p of othersRef.current) {
+      present.add(p.user_id);
+      const seat = seatById(p.seat);
+      const pos = p.pos && isWalkable(p.pos.x, p.pos.y) ? p.pos : SPAWN;
+      scene.upsert(p.user_id, {
+        look: parseLook(p.look) ?? defaultLook(p.user_id),
+        name: p.nickname,
+        status: timerStatus(p.timer, p.timer_started_at, now),
+        tile: pos,
+        dir: seat?.face ?? p.dir ?? "down",
+        sitting: !!seat && seat.x === pos.x && seat.y === pos.y,
+      });
+    }
+    for (const id of scene.ids()) {
+      if (id !== me.user_id && !present.has(id)) scene.remove(id);
+    }
+  }, [me.user_id]);
+
+  // 채널 연결은 입장 전부터 한다 (지금 누가 있는지 보여주기 위해). 입장 = track, 퇴장 = untrack.
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase.channel(SPACE_CHANNEL, {
-      config: { presence: { key: me.user_id } },
+      config: { presence: { key: me.user_id }, broadcast: { self: false } },
     });
     channelRef.current = channel;
 
@@ -55,7 +210,20 @@ export function TeahouseRoom({
         const list = Object.values(state)
           .map((metas) => metas[0])
           .sort((a, b) => a.entered_at.localeCompare(b.entered_at));
+        othersRef.current = list.filter((p) => p.user_id !== me.user_id);
         setPeople(list);
+        syncOthers();
+      })
+      .on("broadcast", { event: MOVE_EVENT }, ({ payload }) => {
+        const msg = payload as MoveMessage;
+        if (!msg || msg.user_id === me.user_id || !msg.from) return;
+        if (!othersRef.current.some((p) => p.user_id === msg.user_id)) return;
+        if (
+          !isWalkable(msg.from.x, msg.from.y) ||
+          !isValidPath(msg.from, msg.path)
+        )
+          return;
+        sceneRef.current?.walk(msg.user_id, msg.from, msg.path);
       })
       .subscribe((s) => {
         if (s === "SUBSCRIBED")
@@ -70,44 +238,118 @@ export function TeahouseRoom({
       insideRef.current = false;
       visitRef.current = null;
       channelRef.current = null;
+      myStateRef.current = null;
+      sceneRef.current?.remove(me.user_id);
       void supabase.removeChannel(channel);
     };
-  }, [me.user_id, attempt]);
+  }, [me.user_id, attempt, syncOthers]);
+
+  // 타이머 분 표시는 30초마다 다시 계산한다
+  useEffect(() => {
+    const id = setInterval(() => {
+      syncOthers();
+      const scene = sceneRef.current;
+      if (scene && insideRef.current)
+        scene.upsert(me.user_id, {
+          look,
+          name: me.nickname,
+          status: timerStatus(timer, timerStartedAt, Date.now()),
+          isMe: true,
+        });
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [syncOthers, me.user_id, me.nickname, look, timer, timerStartedAt]);
 
   const enter = useCallback(async () => {
     const channel = channelRef.current;
     if (!channel || insideRef.current) return;
     setStatus("entering");
-    const res = await channel.track({
+    const state: SpacePresence = {
       ...me,
       timer,
+      timer_started_at: timerStartedAt,
       entered_at: new Date().toISOString(),
-    } satisfies SpacePresence);
+      look,
+      pos: SPAWN,
+      dir: "up",
+      seat: null,
+    };
+    const res = await channel.track(state);
     if (res !== "ok") {
       setStatus("error");
       return;
     }
+    myStateRef.current = state;
     insideRef.current = true;
+    sceneRef.current?.upsert(me.user_id, {
+      look,
+      name: me.nickname,
+      status: timerStatus(timer, timerStartedAt, Date.now()),
+      tile: SPAWN,
+      dir: "up",
+      isMe: true,
+    });
     setStatus("inside");
+    // 들어오자마자 방향키로 움직일 수 있게
+    canvasRef.current?.parentElement?.focus();
     const { visitId } = await enterSpace(detectDevice());
     visitRef.current = visitId;
-  }, [me, timer]);
+  }, [me, timer, timerStartedAt, look]);
 
   const leave = useCallback(async () => {
     const channel = channelRef.current;
     if (!channel || !insideRef.current) return;
     insideRef.current = false;
+    myStateRef.current = null;
+    sceneRef.current?.remove(me.user_id);
     await channel.untrack();
     setStatus("ready");
     if (visitRef.current) {
       await leaveSpace(visitRef.current, detectDevice());
       visitRef.current = null;
     }
-  }, []);
+  }, [me.user_id]);
+
+  const onKeyDown = useCallback(
+    (ev: KeyboardEvent) => {
+      const dir = KEYS[ev.key];
+      if (!dir || !insideRef.current) return;
+      ev.preventDefault();
+      const scene = sceneRef.current;
+      if (!scene || !scene.isIdle(me.user_id)) return;
+      const from = scene.planStart(me.user_id)!;
+      const to = { x: from.x + DELTA[dir].x, y: from.y + DELTA[dir].y };
+      const seat = seatAt(to.x, to.y);
+      if (isWalkable(to.x, to.y) && !(seat && seatTakenByOther(seat.id))) {
+        moveMe(to);
+      } else {
+        scene.turn(me.user_id, dir);
+        pushState({ dir, seat: null });
+      }
+    },
+    [me.user_id, moveMe, pushState, seatTakenByOther],
+  );
+
+  const onSaved = useCallback(
+    (next: Look) => {
+      setLook(next);
+      setEditing(false);
+      if (insideRef.current) {
+        sceneRef.current?.upsert(me.user_id, {
+          look: next,
+          name: me.nickname,
+          status: timerStatus(timer, timerStartedAt, Date.now()),
+          isMe: true,
+        });
+        pushState({ look: next });
+      }
+      showToast("캐릭터를 저장했어요");
+    },
+    [me.user_id, me.nickname, timer, timerStartedAt, pushState, showToast],
+  );
 
   const inside = status === "inside";
   const others = people.filter((p) => p.user_id !== me.user_id);
-  const shown = inside ? people : others;
 
   return (
     <div className="flex flex-col gap-4">
@@ -124,7 +366,7 @@ export function TeahouseRoom({
               ? "혼자 있어요 🍵"
               : `${others.length}명과 함께 있어요 🍵`)}
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {timer && (
             <Link href="/dashboard">
               <Badge tone="matcha">
@@ -132,6 +374,9 @@ export function TeahouseRoom({
               </Badge>
             </Link>
           )}
+          <Button variant="secondary" onClick={() => setEditing(true)}>
+            캐릭터 꾸미기
+          </Button>
           {inside ? (
             <Button variant="secondary" onClick={leave}>
               나가기
@@ -158,90 +403,40 @@ export function TeahouseRoom({
         </div>
       </div>
 
-      {/* 찻집 그림 */}
       <div
+        tabIndex={0}
+        onKeyDown={onKeyDown}
+        aria-label="찻집 공간. 바닥을 누르거나 방향키로 걸어가요"
         className={cn(
-          "relative h-[26rem] overflow-hidden rounded-lg border-2 border-ink shadow-hard md:h-[32rem]",
+          "relative overflow-hidden rounded-lg border-2 border-ink bg-ink shadow-hard focus-visible:outline-2 focus-visible:outline-offset-2",
           status === "error" && "opacity-60",
         )}
-        aria-label="찻집 공간"
       >
-        {/* 벽 */}
-        <div className="absolute inset-x-0 top-0 h-[45%] bg-[#efe3c8]" />
-        {/* 창문 */}
-        <div className="absolute top-[8%] left-1/2 grid h-[28%] w-[44%] -translate-x-1/2 grid-cols-3 gap-1 rounded-md border-2 border-ink bg-ink p-1">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="rounded-sm bg-[#cfe6f2]" />
-          ))}
-        </div>
-        {/* 선반 */}
-        <div className="absolute top-[16%] left-[5%] hidden w-[16%] flex-col gap-2 sm:flex">
-          {[
-            ["bg-hongcha", "bg-matcha", "bg-yuja"],
-            ["bg-hojicha", "bg-surface"],
-          ].map((row, i) => (
-            <div
-              key={i}
-              className="flex items-end gap-1 border-b-2 border-ink pb-0.5"
-            >
-              {row.map((c, j) => (
-                <span
-                  key={j}
-                  className={cn("h-7 w-3 rounded-t-sm border-2 border-ink", c)}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
-        <div className="absolute top-[20%] right-[6%] hidden size-12 rounded-full border-2 border-ink bg-matcha sm:block" />
-        {/* 바닥 */}
-        <div className="absolute inset-x-0 bottom-0 h-[55%] border-t-2 border-ink bg-[repeating-linear-gradient(90deg,#d9b48a_0_48px,#cfa77b_48px_50px)]" />
-        {/* 다탁 */}
-        <div className="absolute top-[64%] left-1/2 h-[12%] w-[38%] -translate-x-1/2 rounded-lg border-2 border-ink bg-hojicha shadow-hard-sm">
-          <span className="absolute top-1/2 left-[30%] size-5 -translate-y-1/2 rounded-full border-2 border-ink bg-surface" />
-          <span className="absolute top-1/2 left-[46%] h-6 w-8 -translate-y-1/2 rounded-md border-2 border-ink bg-matcha" />
-          <span className="absolute top-1/2 left-[66%] size-5 -translate-y-1/2 rounded-full border-2 border-ink bg-surface" />
-        </div>
+        <canvas
+          ref={canvasRef}
+          className={cn(
+            "block touch-none select-none [image-rendering:pixelated]",
+            inside ? "cursor-pointer" : "cursor-default",
+          )}
+        />
+        <div
+          ref={overlayRef}
+          className="pointer-events-none absolute top-0 left-0"
+          aria-hidden
+        />
 
-        {/* 사람들 */}
-        {shown.slice(0, SEATS.length).map((p, i) => {
-          const seat = SEATS[i];
-          const isMe = p.user_id === me.user_id;
-          return (
-            <div
-              key={p.user_id}
-              className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1 transition-all"
-              style={{ left: `${seat.left}%`, top: `${seat.top}%` }}
-            >
-              <MiniAvatar
-                nickname={p.nickname}
-                src={p.avatar_url}
-                className={cn(
-                  "size-12 shadow-hard-sm",
-                  isMe ? "bg-matcha" : "bg-surface",
-                )}
-              />
-              <span className="max-w-24 truncate rounded-sm border-2 border-ink bg-surface px-1.5 text-xs font-bold">
-                {isMe ? "나" : p.nickname}
-              </span>
-              {p.timer && (
-                <span className="text-[10px] font-bold">
-                  {p.timer === "tea" ? "☕ 다도 중" : "📖 독서 중"}
-                </span>
-              )}
-            </div>
-          );
-        })}
-        {shown.length > SEATS.length && (
-          <span className="absolute right-3 bottom-3 rounded-sm border-2 border-ink bg-surface px-2 text-sm font-bold">
-            +{shown.length - SEATS.length}명
-          </span>
+        {toast && (
+          <div
+            className="space-textbox absolute inset-x-3 bottom-3"
+            role="status"
+          >
+            {toast}
+          </div>
         )}
-
         {!inside && status !== "error" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-ink/10">
-            <p className="rounded-md border-2 border-ink bg-surface px-4 py-2 text-sm font-bold shadow-hard-sm">
-              입장하면 다른 사람들에게 내 닉네임이 보여요
+          <div className="absolute inset-0 flex items-center justify-center bg-ink/20">
+            <p className="space-textbox mx-4 text-center">
+              입장하면 다른 사람들에게 내 캐릭터와 닉네임이 보여요
             </p>
           </div>
         )}
@@ -256,6 +451,19 @@ export function TeahouseRoom({
           </div>
         )}
       </div>
+      {inside && (
+        <p className="text-xs text-ink-muted">
+          바닥을 누르면 걸어가요. 방석을 누르면 앉아요. 키보드는 방향키나 WASD.
+        </p>
+      )}
+
+      {editing && (
+        <AvatarEditor
+          initial={look}
+          onClose={() => setEditing(false)}
+          onSaved={onSaved}
+        />
+      )}
     </div>
   );
 }

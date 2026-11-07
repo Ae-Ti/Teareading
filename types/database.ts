@@ -199,6 +199,33 @@ export type Database = {
           },
         ];
       };
+      space_avatars: {
+        Row: {
+          look: NonNullable<Json>;
+          updated_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          look: NonNullable<Json>;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          look?: NonNullable<Json>;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "space_avatars_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       space_visits: {
         Row: {
           entered_at: string;
