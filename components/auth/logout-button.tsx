@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { logout } from "@/app/auth/actions";
 import { INITIAL_AUTH_STATE, SERVICE_ERROR } from "@/lib/auth/forms";
 
@@ -9,14 +10,11 @@ export function LogoutButton() {
   const [state, action, pending] = useActionState(async () => {
     try {
       return await logout();
-    } catch {
+    } catch (error) {
+      unstable_rethrow(error);
       return { status: "error" as const, message: SERVICE_ERROR };
     }
   }, INITIAL_AUTH_STATE);
-
-  useEffect(() => {
-    if (state.redirectTo) window.location.replace(state.redirectTo);
-  }, [state.redirectTo]);
 
   return (
     <form action={action} aria-busy={pending} className="my-6">
