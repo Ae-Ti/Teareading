@@ -30,6 +30,7 @@ import { newClientId } from "@/lib/chat/id";
 import {
   CHAT_ROOMS,
   fetchMessages,
+  fetchNewer,
   insertMessage,
   type ChatRoomRef,
 } from "@/lib/chat/rooms";
@@ -75,6 +76,10 @@ export function ChatRoom({
   const topRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
   const restoreRef = useRef<{ height: number; top: number } | null>(null);
+  const itemsRef = useRef(items);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
   const profilesRef = useRef(profiles);
   useEffect(() => {
     profilesRef.current = profiles;
@@ -109,16 +114,31 @@ export function ChatRoom({
     const timers: ReturnType<typeof setTimeout>[] = [];
 
     // 서버가 화면을 만든 뒤 구독이 실제로 걸리기까지(수 초) 또는 연결이 끊긴 동안 온 메시지를 채운다.
+    // 화면에 있는 가장 최근 메시지 이후를 페이지 단위로 끝까지 받아 오므로, 오래 끊겨도 중간이 비지 않는다.
     // 같은 메시지는 mergeMessages가 한 번만 남긴다.
-    const catchUp = () =>
-      void fetchMessages(supabase, room).then((res) => {
+    const catchUp = async () => {
+      const sent = itemsRef.current.filter((m) => m.status === "sent");
+      const newest = sent[sent.length - 1];
+      if (!newest) {
+        const res = await fetchMessages(supabase, room);
         if (res.error || disposed) return;
         addProfiles(res.profiles);
         setItems((s) => mergeMessages(s, res.messages));
-      });
+        return;
+      }
+      let after = newest.created_at;
+      for (let page = 0; page < 20; page++) {
+        const res = await fetchNewer(supabase, room, after);
+        if (res.error || disposed) return;
+        addProfiles(res.profiles);
+        setItems((s) => mergeMessages(s, res.messages));
+        if (!res.hasMore) return;
+        after = res.messages[res.messages.length - 1].created_at;
+      }
+    };
 
     const channel = supabase
-      .channel(`chat:${room.kind}:${room.id}`)
+      .channel(`chat:${room.kind}:${room.id}:${newClientId()}`)
       .on(
         "postgres_changes",
         {
@@ -138,8 +158,8 @@ export function ChatRoom({
         if (disposed) return;
         if (status === "SUBSCRIBED") {
           setConn("live");
-          catchUp();
-          timers.push(setTimeout(catchUp, 3000));
+          void catchUp();
+          timers.push(setTimeout(() => void catchUp(), 3000));
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           setConn("lost");
         }
@@ -164,8 +184,10 @@ export function ChatRoom({
       setOlder("error");
       return;
     }
+    // 붙일 메시지가 있을 때만 위치 복원을 예약한다 (빈 결과면 다시 그리지 않아 복원 값이 남는다)
     const el = listRef.current;
-    if (el) restoreRef.current = { height: el.scrollHeight, top: el.scrollTop };
+    if (el && res.messages.length)
+      restoreRef.current = { height: el.scrollHeight, top: el.scrollTop };
     addProfiles(res.profiles);
     setItems((s) => mergeMessages(s, res.messages));
     setHasMore(res.hasMore);

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { test } from "node:test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { fetchMessages, insertMessage } from "@/lib/chat/rooms";
+import { fetchMessages, fetchNewer, insertMessage } from "@/lib/chat/rooms";
 import type { Database } from "@/types/database";
 
 if (existsSync(".env.local")) process.loadEnvFile(".env.local");
@@ -234,9 +234,13 @@ test("단체 채팅 권한·중복 방지·실시간 수신", async (t) => {
           "실시간",
         );
         assert.ok(sent.ok);
-        for (let i = 0; i < 80 && received.member.length === 0; i++)
+        // 구독 직전에 저장된 메시지가 늦게 함께 올 수 있다(Realtime 특성). 화면은 mergeMessages로 중복을 없앤다.
+        for (let i = 0; i < 80 && !received.member.includes("실시간"); i++)
           await new Promise((r) => setTimeout(r, 100));
-        assert.deepEqual(received.member, ["실시간"]);
+        assert.ok(
+          received.member.includes("실시간"),
+          "멤버는 새 메시지를 받는다",
+        );
         await new Promise((r) => setTimeout(r, 500));
         assert.deepEqual(received.outsider, [], "비회원에게는 전달되지 않는다");
       } finally {
@@ -298,6 +302,18 @@ test("단체 채팅 권한·중복 방지·실시간 수신", async (t) => {
         all.slice(-55).map((m) => m.body),
         bodies,
       );
+      // 오래 끊겼다가 돌아온 경우: 화면의 가장 최근 메시지 이후를 페이지 단위로 빠짐없이 받는다
+      const anchor = all[all.length - 56];
+      const gap: string[] = [];
+      let after = anchor.created_at;
+      for (;;) {
+        const page = await fetchNewer(owner.c, room, after);
+        assert.equal(page.error, null);
+        gap.push(...page.messages.map((m) => m.body));
+        if (!page.hasMore) break;
+        after = page.messages[page.messages.length - 1].created_at;
+      }
+      assert.deepEqual(gap, bodies);
       const times = all.map((m) => Date.parse(m.created_at));
       assert.deepEqual(
         times,
