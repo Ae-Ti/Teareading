@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { TeahouseRoom } from "@/components/space/teahouse-room";
 import { LoadingBlock } from "@/components/ui/state";
+import { defaultLook, parseLook } from "@/lib/space/look";
 import { requireUser } from "@/lib/supabase/user";
 
 export const metadata = { title: "찻집 · 티어리딩" };
@@ -11,8 +12,9 @@ export default function Page() {
       <div>
         <h1 className="text-2xl font-bold md:text-3xl">찻집</h1>
         <p className="text-sm text-ink-muted">
-          다른 사람들과 같은 공간에서 조용히 차를 마시고 책을 읽어요. 타이머는
-          찻집 밖에서도 그대로 쓸 수 있어요.
+          다른 사람들과 같은 공간에서 조용히 차를 마시고 책을 읽어요. 바닥을
+          눌러 걸어가고, 방석을 누르면 앉아요. 타이머는 찻집 밖에서도 그대로 쓸
+          수 있어요.
         </p>
       </div>
       <Suspense fallback={<LoadingBlock className="h-[28rem]" />}>
@@ -24,7 +26,7 @@ export default function Page() {
 
 async function Room() {
   const { supabase, userId } = await requireUser("/space");
-  const [profile, running] = await Promise.all([
+  const [profile, running, avatar] = await Promise.all([
     supabase
       .from("profiles")
       .select("nickname, avatar_url")
@@ -32,8 +34,13 @@ async function Room() {
       .single(),
     supabase
       .from("timer_sessions")
-      .select("activity")
+      .select("activity, started_at")
       .eq("status", "running")
+      .maybeSingle(),
+    supabase
+      .from("space_avatars")
+      .select("look")
+      .eq("user_id", userId)
       .maybeSingle(),
   ]);
 
@@ -44,7 +51,9 @@ async function Room() {
         nickname: profile.data?.nickname ?? "손님",
         avatar_url: profile.data?.avatar_url ?? null,
       }}
+      initialLook={parseLook(avatar.data?.look) ?? defaultLook(userId)}
       timer={(running.data?.activity as "tea" | "reading" | undefined) ?? null}
+      timerStartedAt={running.data?.started_at ?? null}
     />
   );
 }

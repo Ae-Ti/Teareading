@@ -19,7 +19,7 @@ export default function Page() {
             차와 책을 좋아하는 사람들의 모임을 찾아보세요.
           </p>
         </div>
-        <LinkButton href="/groups/new" size="sm">
+        <LinkButton href="/groups/new" size="sm" className="shrink-0">
           모임 만들기
         </LinkButton>
       </div>

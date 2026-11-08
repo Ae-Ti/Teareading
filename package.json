@@ -15,7 +15,9 @@
     "test:profile": "node --import tsx --test tests/profile.test.ts",
     "test:profile:db": "node --import tsx --test tests/profile.db.test.ts",
     "test:profile:e2e": "playwright test --config tests/auth.playwright.config.ts profile.spec.ts",
-    "test:auth:e2e": "playwright test --config tests/auth.playwright.config.ts"
+    "test:auth:e2e": "playwright test --config tests/auth.playwright.config.ts",
+    "test:rls": "node --import tsx --test tests/rls.db.test.ts",
+    "test:space": "node --import tsx --test tests/space.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

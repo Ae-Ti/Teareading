@@ -1,6 +1,7 @@
 "use server";
 
 import { isUuid } from "@/lib/records";
+import { parseLook, type Look } from "@/lib/space/look";
 import { requireUser } from "@/lib/supabase/user";
 import { track, type Device } from "@/lib/track";
 
@@ -38,4 +39,21 @@ export async function leaveSpace(visitId: string, device: Device | null) {
       device,
     );
   }
+}
+
+// 캐릭터 꾸미기 저장 (허용된 값만)
+export async function saveLook(
+  value: unknown,
+  device: Device | null,
+): Promise<{ ok: true; look: Look } | { ok: false; error: string }> {
+  const { supabase, userId } = await requireUser("/space");
+  const look = parseLook(value);
+  if (!look) return { ok: false, error: "고를 수 없는 값이 있어요." };
+  const { error } = await supabase
+    .from("space_avatars")
+    .upsert({ user_id: userId, look });
+  if (error)
+    return { ok: false, error: "저장하지 못했어요. 다시 시도해 주세요." };
+  await track(supabase, "space_avatar_updated", look, device);
+  return { ok: true, look };
 }

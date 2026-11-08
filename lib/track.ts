@@ -15,6 +15,7 @@ export type EventName =
   | "guide_viewed"
   | "space_entered"
   | "space_left"
+  | "space_avatar_updated"
   | "group_viewed"
   | "group_joined"
   | "group_message_sent"

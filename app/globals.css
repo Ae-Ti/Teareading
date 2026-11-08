@@ -117,8 +117,6 @@ body {
   padding: 1rem 1.25rem;
 }
 .guide-prose table {
-  display: block;
-  overflow-x: auto;
   width: 100%;
   border-collapse: collapse;
   border: var(--tr-border-width) solid var(--tr-ink);
@@ -130,9 +128,60 @@ body {
   border: 1px solid var(--tr-ink-subtle);
   padding: 0.5rem 0.75rem;
   text-align: left;
+  vertical-align: top;
+}
+/* 첫 열(차 이름 등)만 줄바꿈하지 않고, 나머지는 좁은 화면에서 줄바꿈한다 */
+.guide-prose th,
+.guide-prose td:first-child {
   white-space: nowrap;
 }
 .guide-prose th {
   background: var(--tr-matcha);
   border-bottom: var(--tr-border-width) solid var(--tr-ink);
+}
+
+/* 찻집 픽셀 맵 (components/space) — 이름표·안내 상자 */
+.space-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 700;
+  will-change: transform;
+}
+.space-label-name {
+  border-radius: 3px;
+  background: rgb(44 36 48 / 0.8);
+  color: #fff;
+  padding: 0 5px;
+}
+.space-label-me {
+  background: var(--tr-matcha);
+  color: var(--tr-ink);
+  box-shadow: 0 0 0 1.5px var(--tr-ink);
+}
+.space-label-status {
+  border: 1.5px solid var(--tr-ink);
+  border-radius: 3px;
+  background: #fff6c8;
+  color: var(--tr-ink);
+  padding: 0 4px;
+}
+.space-textbox {
+  border: 3px solid #4a4a5a;
+  border-radius: 6px;
+  outline: 2px solid #fbf8ef;
+  outline-offset: -6px;
+  background: #fbf8ef;
+  box-shadow: 0 3px 0 rgb(44 36 48 / 0.35);
+  padding: 0.6rem 0.9rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #2c2430;
 }
