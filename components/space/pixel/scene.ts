@@ -2,19 +2,19 @@
 
 import type { Look } from "@/lib/space/look";
 import {
-  COLS,
-  ROWS,
   seatAt,
   TILE,
   type Dir,
+  type GameMap,
   type Point,
 } from "@/lib/space/map";
 import { dirBetween } from "@/lib/space/path";
 import { CHAR_H, CHAR_W, characterSprite, type Pose } from "./character";
-import { drawGround, TALL_PROPS } from "./tiles";
+import { drawGround, propsFor, type Decor } from "./tiles";
 
 // 한 칸 걷는 시간 (약 초당 4칸)
 export const STEP_MS = 240;
+const FADE_MS = 180;
 
 type Entity = {
   id: string;
@@ -51,14 +51,21 @@ export class TeahouseScene {
   private offset = { x: 0, y: 0 };
   private marker: { tile: Point; t: number } | null = null;
   private resize: ResizeObserver;
+  private props: ReturnType<typeof propsFor>;
+  private places: { el: HTMLSpanElement; x: number; y: number }[] = [];
+  private fade: { t: number; out: boolean; done?: () => void } | null = null;
 
   constructor(
     private canvas: HTMLCanvasElement,
     private overlay: HTMLDivElement,
+    private map: GameMap,
+    private decor: Decor | undefined,
     private events: SceneEvents,
   ) {
     this.ctx = canvas.getContext("2d")!;
-    this.ground = drawGround();
+    this.ground = drawGround(map, decor);
+    this.props = propsFor(map, decor);
+    this.makePlaces();
     this.resize = new ResizeObserver(() => this.layout());
     this.resize.observe(canvas.parentElement!);
     canvas.addEventListener("pointerdown", this.handlePointer);
@@ -72,6 +79,54 @@ export class TeahouseScene {
     this.canvas.removeEventListener("pointerdown", this.handlePointer);
     for (const e of this.entities.values()) e.label.remove();
     this.entities.clear();
+    for (const p of this.places) p.el.remove();
+  }
+
+  // ─── 맵 ───
+
+  // 맵을 바꾼다. 내 캐릭터만 tile로 옮기고 다른 사람은 지운다.
+  setMap(map: GameMap, decor: Decor | undefined, tile: Point, dir: Dir) {
+    this.map = map;
+    this.decor = decor;
+    this.ground = drawGround(map, decor);
+    this.props = propsFor(map, decor);
+    this.marker = null;
+    this.makePlaces();
+    for (const e of [...this.entities.values()]) {
+      if (!e.isMe) {
+        this.remove(e.id);
+        continue;
+      }
+      e.tile = tile;
+      e.next = null;
+      e.path = [];
+      e.progress = 0;
+      e.dir = dir;
+      e.sitting = false;
+    }
+    this.layout();
+  }
+
+  setDecor(decor: Decor) {
+    this.decor = decor;
+    this.ground = drawGround(this.map, decor);
+    this.props = propsFor(this.map, decor);
+  }
+
+  // 화면을 어둡게 한 뒤 done을 부르고 다시 밝힌다 (맵 이동)
+  fadeThrough(done: () => void) {
+    this.fade = { t: 0, out: true, done };
+  }
+
+  private makePlaces() {
+    for (const p of this.places) p.el.remove();
+    this.places = this.map.places.map((p) => {
+      const el = document.createElement("span");
+      el.className = "space-label space-label-place";
+      el.textContent = p.text;
+      this.overlay.appendChild(el);
+      return { el, x: p.x, y: p.y };
+    });
   }
 
   // ─── 캐릭터 관리 ───
@@ -96,7 +151,7 @@ export class TeahouseScene {
       e = {
         id,
         look: opts.look,
-        tile: opts.tile ?? { x: 9, y: 12 },
+        tile: opts.tile ?? this.map.spawn,
         next: null,
         progress: 0,
         path: [],
@@ -197,8 +252,8 @@ export class TeahouseScene {
   private layout() {
     const parent = this.canvas.parentElement!;
     const width = parent.clientWidth;
-    const worldW = COLS * TILE;
-    const worldH = ROWS * TILE;
+    const worldW = this.map.cols * TILE;
+    const worldH = this.map.rows * TILE;
     // 정수 배율: 데스크톱은 맵 전체가, 모바일은 2배로 키우고 카메라가 따라간다
     this.scale = Math.max(2, Math.min(3, Math.floor(width / worldW)));
     const maxH = Math.max(320, Math.round(window.innerHeight * 0.68));
@@ -222,7 +277,13 @@ export class TeahouseScene {
     const wy =
       (ev.clientY - rect.top - this.offset.y) / this.scale + this.cam.y;
     const tile = { x: Math.floor(wx / TILE), y: Math.floor(wy / TILE) };
-    if (tile.x < 0 || tile.y < 0 || tile.x >= COLS || tile.y >= ROWS) return;
+    if (
+      tile.x < 0 ||
+      tile.y < 0 ||
+      tile.x >= this.map.cols ||
+      tile.y >= this.map.rows
+    )
+      return;
     this.events.onTap(tile);
   };
 
@@ -235,6 +296,17 @@ export class TeahouseScene {
     if (this.marker) {
       this.marker.t += dt;
       if (this.marker.t > 900) this.marker = null;
+    }
+    if (this.fade) {
+      this.fade.t += dt;
+      if (this.fade.t >= FADE_MS) {
+        if (this.fade.out) {
+          this.fade.done?.();
+          this.fade = { t: 0, out: false };
+        } else {
+          this.fade = null;
+        }
+      }
     }
     this.draw();
     this.raf = requestAnimationFrame(this.frame);
@@ -260,7 +332,7 @@ export class TeahouseScene {
   }
 
   private arrive(e: Entity) {
-    const seat = seatAt(e.tile.x, e.tile.y);
+    const seat = seatAt(this.map, e.tile.x, e.tile.y);
     if (e.isMe) this.events.onArrive(e.tile, seat ? seat.face : e.dir);
   }
 
@@ -284,8 +356,8 @@ export class TeahouseScene {
 
   private draw() {
     const { ctx, scale, dpr } = this;
-    const worldW = COLS * TILE;
-    const worldH = ROWS * TILE;
+    const worldW = this.map.cols * TILE;
+    const worldH = this.map.rows * TILE;
     const viewW = this.cssW / scale;
     const viewH = this.cssH / scale;
 
@@ -328,7 +400,7 @@ export class TeahouseScene {
     if (this.marker) this.drawMarker(this.marker.tile, this.marker.t);
 
     // 앞뒤 정렬: 바닥에 닿는 y가 작은 것부터
-    const drawables: { y: number; draw: () => void }[] = TALL_PROPS.map(
+    const drawables: { y: number; draw: () => void }[] = this.props.map(
       (p) => ({
         y: p.sortY,
         draw: () => p.draw(ctx),
@@ -354,6 +426,19 @@ export class TeahouseScene {
     }
     drawables.sort((a, b) => a.y - b.y);
     for (const d of drawables) d.draw();
+
+    for (const p of this.places) {
+      const lx = this.offset.x + (p.x * TILE + TILE / 2 - this.cam.x) * scale;
+      const ly = this.offset.y + (p.y * TILE - this.cam.y) * scale;
+      p.el.style.transform = `translate(${Math.round(lx)}px, ${Math.round(ly)}px) translate(-50%, -50%)`;
+    }
+
+    if (this.fade) {
+      const r = Math.min(1, this.fade.t / FADE_MS);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = `rgba(44, 36, 48, ${this.fade.out ? r : 1 - r})`;
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
 
     // 이름표 위치 (DOM)
     for (const e of this.entities.values()) {

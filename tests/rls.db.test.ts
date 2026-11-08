@@ -63,6 +63,7 @@ test("태일 담당 테이블 RLS 점검", async (t) => {
       "group_members",
       "space_visits",
       "space_avatars",
+      "space_rooms",
       "group_messages",
       "dm_threads",
       "dm_messages",
@@ -668,6 +669,28 @@ test("태일 담당 테이블 RLS 점검", async (t) => {
         }
       },
     );
+
+    await t.test("내 방: 남의 방 조회·수정·대리 저장 불가", async () => {
+      const style = { wall: "hanji", floor: "wood" };
+      const own = await a.from("space_rooms").upsert({ user_id: idA, style });
+      assert.equal(own.error, null);
+      assertBlocked(
+        await b.from("space_rooms").select("style").eq("user_id", idA),
+        "B가 A의 방 조회",
+      );
+      assertBlocked(
+        await b
+          .from("space_rooms")
+          .update({ style: { ...style, wall: "night" } })
+          .eq("user_id", idA)
+          .select("user_id"),
+        "B가 A의 방 수정",
+      );
+      const forged = await b
+        .from("space_rooms")
+        .insert({ user_id: idA, style });
+      assert.ok(forged.error, "B가 A 이름으로 방 저장");
+    });
 
     await t.test("권한 확인 함수는 비로그인이 호출할 수 없다", async () => {
       const res = await anon.rpc("is_group_member", {

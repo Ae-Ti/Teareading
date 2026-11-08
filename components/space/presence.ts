@@ -4,6 +4,9 @@ import type { Dir, Point } from "@/lib/space/map";
 // 찻집 Realtime 채널 이름과 상태 모양. 입장 화면과 대시보드가 같이 쓴다.
 export const SPACE_CHANNEL = "space:teahouse";
 
+// 공용 공간마다 채널을 따로 쓴다. 대시보드의 인원 표시는 찻집(SPACE_CHANNEL) 기준이다.
+export const spaceChannel = (mapId: string) => `space:${mapId}`;
+
 export type SpacePresence = {
   user_id: string;
   nickname: string;
