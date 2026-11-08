@@ -218,6 +218,8 @@ export type Database = {
           body: string;
           client_id: string;
           created_at: string;
+          deleted_at: string | null;
+          deleted_by: string | null;
           group_id: string;
           id: string;
           sender_id: string;
@@ -227,6 +229,8 @@ export type Database = {
           body: string;
           client_id: string;
           created_at?: string;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           group_id: string;
           id?: string;
           sender_id?: string;
@@ -235,11 +239,20 @@ export type Database = {
           body?: string;
           client_id?: string;
           created_at?: string;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           group_id?: string;
           id?: string;
           sender_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "group_messages_deleted_by_fkey";
+            columns: ["deleted_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "group_messages_group_id_fkey";
             columns: ["group_id"];
@@ -250,6 +263,50 @@ export type Database = {
           {
             foreignKeyName: "group_messages_sender_id_fkey";
             columns: ["sender_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      group_mutes: {
+        Row: {
+          created_at: string;
+          group_id: string;
+          muted_by: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          group_id: string;
+          muted_by?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          group_id?: string;
+          muted_by?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "group_mutes_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_mutes_muted_by_fkey";
+            columns: ["muted_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_mutes_user_id_fkey";
+            columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -286,6 +343,165 @@ export type Database = {
           {
             foreignKeyName: "groups_owner_id_fkey";
             columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      post_comments: {
+        Row: {
+          author_id: string;
+          body: string;
+          created_at: string;
+          id: string;
+          post_id: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          author_id?: string;
+          body: string;
+          created_at?: string;
+          id?: string;
+          post_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          author_id?: string;
+          body?: string;
+          created_at?: string;
+          id?: string;
+          post_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "post_comments_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "post_comments_post_id_fkey";
+            columns: ["post_id"];
+            isOneToOne: false;
+            referencedRelation: "posts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      post_likes: {
+        Row: {
+          created_at: string;
+          post_id: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          post_id: string;
+          user_id?: string;
+        };
+        Update: {
+          created_at?: string;
+          post_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "post_likes_post_id_fkey";
+            columns: ["post_id"];
+            isOneToOne: false;
+            referencedRelation: "posts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "post_likes_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      post_views: {
+        Row: {
+          day: string;
+          post_id: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          day: string;
+          post_id: string;
+          user_id: string;
+        };
+        Update: {
+          day?: string;
+          post_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "post_views_post_id_fkey";
+            columns: ["post_id"];
+            isOneToOne: false;
+            referencedRelation: "posts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "post_views_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      posts: {
+        Row: {
+          author_id: string;
+          body: string;
+          category: string;
+          comment_count: number;
+          created_at: string;
+          id: string;
+          like_count: number;
+          title: string;
+          updated_at: string;
+          view_count: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          author_id?: string;
+          body: string;
+          category?: string;
+          comment_count?: number;
+          created_at?: string;
+          id?: string;
+          like_count?: number;
+          title: string;
+          updated_at?: string;
+          view_count?: number;
+        };
+        Update: {
+          author_id?: string;
+          body?: string;
+          category?: string;
+          comment_count?: number;
+          created_at?: string;
+          id?: string;
+          like_count?: number;
+          title?: string;
+          updated_at?: string;
+          view_count?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "posts_author_id_fkey";
+            columns: ["author_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -513,6 +729,25 @@ export type Database = {
       };
     };
     Functions: {
+      delete_group_message: {
+        Args: { p_message_id: string };
+        Returns: {
+          body: string;
+          client_id: string;
+          created_at: string;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          group_id: string;
+          id: string;
+          sender_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "group_messages";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       delete_my_account: {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
@@ -542,6 +777,8 @@ export type Database = {
       };
       is_dm_participant: { Args: { p_thread_id: string }; Returns: boolean };
       is_group_member: { Args: { p_group_id: string }; Returns: boolean };
+      is_group_moderator: { Args: { p_group_id: string }; Returns: boolean };
+      is_group_muted: { Args: { p_group_id: string }; Returns: boolean };
       is_group_owner: { Args: { p_group_id: string }; Returns: boolean };
       is_nickname_available: { Args: { p_nickname: string }; Returns: boolean };
       my_avatar_file_count: {
@@ -560,6 +797,30 @@ export type Database = {
           other_id: string;
           other_nickname: string;
         }[];
+      };
+      my_group_chats: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          group_id: string;
+          joined_at: string;
+          last_at: string;
+          last_body: string;
+          last_deleted: boolean;
+          last_sender_id: string;
+          last_sender_nickname: string;
+          member_count: number;
+          name: string;
+        }[];
+      };
+      my_group_role: { Args: { p_group_id: string }; Returns: string };
+      record_post_view: { Args: { p_post_id: string }; Returns: boolean };
+      set_group_manager: {
+        Args: { p_group_id: string; p_manager: boolean; p_user_id: string };
+        Returns: undefined;
+      };
+      set_group_mute: {
+        Args: { p_group_id: string; p_muted: boolean; p_user_id: string };
+        Returns: undefined;
       };
       start_dm: { Args: { p_other: string }; Returns: Json };
       start_timer: {

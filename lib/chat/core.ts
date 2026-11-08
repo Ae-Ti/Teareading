@@ -8,6 +8,8 @@ export type ChatMessage = {
   sender_id: string;
   body: string;
   created_at: string;
+  // 단체 채팅에서 모임장·부모임장이 지운 메시지 (내용은 비워진다)
+  deleted_at?: string | null;
 };
 
 export type ChatProfile = { nickname: string; avatar_url: string | null };
@@ -64,6 +66,7 @@ export function mergeMessages(
       sender_id: m.sender_id,
       body: m.body,
       created_at: m.created_at,
+      deleted_at: m.deleted_at ?? null,
       status: "sent",
     });
   }
