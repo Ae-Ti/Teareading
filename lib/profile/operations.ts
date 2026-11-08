@@ -12,6 +12,23 @@ import {
 } from "./forms";
 import { prepareAvatar } from "./image";
 
+async function removeStaleAvatars(
+  client: SupabaseClient<Database>,
+  userId: string,
+  currentPath: string | null,
+) {
+  try {
+    const bucket = client.storage.from("avatars");
+    const listed = await bucket.list(userId, { limit: 100 });
+    const stale = (listed.data ?? [])
+      .map((file) => `${userId}/${file.name}`)
+      .filter((objectPath) => objectPath !== currentPath);
+    if (stale.length) await bucket.remove(stale);
+  } catch {
+    // 정리에 실패해도 업로드를 시도한다. 막히면 업로드 오류로 안내된다.
+  }
+}
+
 export async function saveProfile(
   form: FormData,
   getClient: () => Promise<SupabaseClient<Database>>,
@@ -97,6 +114,14 @@ export async function saveProfile(
           },
         };
       }
+      // 지난번에 정리하지 못한 파일이 남아 있으면 먼저 지운다 (최선의 시도, 실패해도 저장은 계속).
+      // 업로드는 폴더당 2개까지라(교체 중 잠깐 2개) 남은 파일이 있으면 새 업로드가 막힌다.
+      await removeStaleAvatars(
+        client,
+        userId,
+        avatarObjectPath(original.data.avatar_url, userId),
+      );
+
       const path = `${userId}/${randomUUID()}.webp`;
       const upload = await client.storage.from("avatars").upload(path, image, {
         contentType: "image/webp",

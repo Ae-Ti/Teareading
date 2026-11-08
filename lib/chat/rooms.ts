@@ -46,12 +46,20 @@ function split(rows: Row[]) {
   return { messages, profiles };
 }
 
+// 페이지 기준점: 작성 시각이 같은 메시지(같은 트랜잭션)도 빠짐없이 나누도록 (created_at, id) 쌍으로 비교한다.
+// created_at은 DB가 준 문자열을 그대로 쓴다 (마이크로초까지 비교).
+export type Cursor = { created_at: string; id: string };
+
+function cursorFilter(op: "lt" | "gt", c: Cursor) {
+  const at = `"${c.created_at}"`;
+  return `created_at.${op}.${at},and(created_at.eq.${at},id.${op}.${c.id})`;
+}
+
 // 최근 메시지 한 페이지(시간순). before를 주면 그보다 이전 메시지를 가져온다.
-// before는 DB가 준 created_at 문자열을 그대로 넘긴다 (마이크로초까지 비교).
 export async function fetchMessages(
   supabase: SupabaseClient<Database>,
   room: ChatRoomRef,
-  before?: string,
+  before?: Cursor,
 ) {
   let query = table(supabase, room)
     .select(COLUMNS)
@@ -59,7 +67,7 @@ export async function fetchMessages(
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(PAGE_SIZE);
-  if (before) query = query.lt("created_at", before);
+  if (before) query = query.or(cursorFilter("lt", before));
 
   const { data, error } = await query;
   if (error)
@@ -68,16 +76,16 @@ export async function fetchMessages(
   return { error: null, ...split(rows), hasMore: rows.length === PAGE_SIZE };
 }
 
-// 끊긴 동안 온 메시지 채우기: after(DB가 준 created_at)보다 뒤의 메시지를 오래된 순으로 한 페이지
+// 끊긴 동안 온 메시지 채우기: after보다 뒤의 메시지를 오래된 순으로 한 페이지
 export async function fetchNewer(
   supabase: SupabaseClient<Database>,
   room: ChatRoomRef,
-  after: string,
+  after: Cursor,
 ) {
   const { data, error } = await table(supabase, room)
     .select(COLUMNS)
     .eq(CHAT_ROOMS[room.kind].column, room.id)
-    .gt("created_at", after)
+    .or(cursorFilter("gt", after))
     .order("created_at", { ascending: true })
     .order("id", { ascending: true })
     .limit(PAGE_SIZE);

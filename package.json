@@ -24,6 +24,8 @@
     "test:legal": "node --import tsx --test tests/legal.test.ts",
     "test:landing:e2e": "playwright test --config tests/auth.playwright.config.ts landing-legal.spec.ts",
     "test:cross:e2e": "playwright test --config tests/auth.playwright.config.ts cross-taeil.spec.ts",
+    "test:account:db": "node --import tsx --test tests/account.db.test.ts",
+    "test:account:e2e": "playwright test --config tests/auth.playwright.config.ts account.spec.ts",
     "test:rls": "node --import tsx --test tests/rls.db.test.ts",
     "test:space": "node --import tsx --test tests/space.test.ts"
   },
