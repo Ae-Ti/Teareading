@@ -12,7 +12,15 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test:auth": "node --import tsx --test tests/auth.test.ts",
     "test:auth:db": "node --import tsx --test tests/auth.db.test.ts",
+    "test:profile": "node --import tsx --test tests/profile.test.ts",
+    "test:profile:db": "node --import tsx --test tests/profile.db.test.ts",
+    "test:profile:e2e": "playwright test --config tests/auth.playwright.config.ts profile.spec.ts",
     "test:auth:e2e": "playwright test --config tests/auth.playwright.config.ts",
+    "test:chat": "node --import tsx --test tests/chat.test.ts",
+    "test:chat:db": "node --import tsx --test tests/chat.db.test.ts",
+    "test:chat:e2e": "playwright test --config tests/auth.playwright.config.ts group-chat.spec.ts",
+    "test:dm:db": "node --import tsx --test tests/dm.db.test.ts",
+    "test:dm:e2e": "playwright test --config tests/auth.playwright.config.ts dm.spec.ts",
     "test:rls": "node --import tsx --test tests/rls.db.test.ts",
     "test:space": "node --import tsx --test tests/space.test.ts"
   },
@@ -22,7 +30,8 @@
     "marked": "^18.1.3",
     "next": "16.4.3",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",

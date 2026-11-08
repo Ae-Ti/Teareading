@@ -34,6 +34,120 @@ export type Database = {
   };
   public: {
     Tables: {
+      blocks: {
+        Row: {
+          blocked_id: string;
+          blocker_id: string;
+          created_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          blocked_id: string;
+          blocker_id?: string;
+          created_at?: string;
+        };
+        Update: {
+          blocked_id?: string;
+          blocker_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "blocks_blocked_id_fkey";
+            columns: ["blocked_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "blocks_blocker_id_fkey";
+            columns: ["blocker_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      dm_messages: {
+        Row: {
+          body: string;
+          client_id: string;
+          created_at: string;
+          id: string;
+          sender_id: string;
+          thread_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          body: string;
+          client_id: string;
+          created_at?: string;
+          id?: string;
+          sender_id?: string;
+          thread_id: string;
+        };
+        Update: {
+          body?: string;
+          client_id?: string;
+          created_at?: string;
+          id?: string;
+          sender_id?: string;
+          thread_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dm_messages_sender_id_fkey";
+            columns: ["sender_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dm_messages_thread_id_fkey";
+            columns: ["thread_id"];
+            isOneToOne: false;
+            referencedRelation: "dm_threads";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      dm_threads: {
+        Row: {
+          created_at: string;
+          id: string;
+          user_a: string;
+          user_b: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          id?: string;
+          user_a: string;
+          user_b: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          user_a?: string;
+          user_b?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dm_threads_user_a_fkey";
+            columns: ["user_a"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dm_threads_user_b_fkey";
+            columns: ["user_b"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       events: {
         Row: {
           created_at: string;
@@ -93,6 +207,49 @@ export type Database = {
           {
             foreignKeyName: "group_members_user_id_fkey";
             columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      group_messages: {
+        Row: {
+          body: string;
+          client_id: string;
+          created_at: string;
+          group_id: string;
+          id: string;
+          sender_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          body: string;
+          client_id: string;
+          created_at?: string;
+          group_id: string;
+          id?: string;
+          sender_id?: string;
+        };
+        Update: {
+          body?: string;
+          client_id?: string;
+          created_at?: string;
+          group_id?: string;
+          id?: string;
+          sender_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "group_messages_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_messages_sender_id_fkey";
+            columns: ["sender_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -356,6 +513,7 @@ export type Database = {
       };
     };
     Functions: {
+      dm_can_send: { Args: { p_thread_id: string }; Returns: boolean };
       finish_timer: {
         Args: { p_id: string; p_status: string };
         Returns: {
@@ -374,9 +532,28 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      is_blocked_between: {
+        Args: { p_a: string; p_b: string };
+        Returns: boolean;
+      };
+      is_dm_participant: { Args: { p_thread_id: string }; Returns: boolean };
       is_group_member: { Args: { p_group_id: string }; Returns: boolean };
       is_group_owner: { Args: { p_group_id: string }; Returns: boolean };
       is_nickname_available: { Args: { p_nickname: string }; Returns: boolean };
+      my_dm_threads: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          created_at: string;
+          id: string;
+          last_at: string;
+          last_body: string;
+          last_sender_id: string;
+          other_avatar_url: string;
+          other_id: string;
+          other_nickname: string;
+        }[];
+      };
+      start_dm: { Args: { p_other: string }; Returns: Json };
       start_timer: {
         Args: { p_activity: string; p_target_seconds: number };
         Returns: {

@@ -1,0 +1,31 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
+import { isUuid } from "@/lib/records";
+import { PUBLIC_PROFILE_FIELDS } from "./forms";
+
+export function getPublicProfile(client: SupabaseClient<Database>, id: string) {
+  if (!isUuid(id)) return Promise.resolve({ data: null, error: null });
+  // 개인 기록·이메일·인증 metadata는 공개 프로필 쿼리에 포함하지 않는다.
+  return client
+    .from("profiles")
+    .select(PUBLIC_PROFILE_FIELDS)
+    .eq("id", id)
+    .maybeSingle();
+}
+
+export async function getProfileGroups(
+  client: SupabaseClient<Database>,
+  id: string,
+) {
+  const result = await client
+    .from("group_members")
+    .select("role,group:groups(id,name,description)")
+    .eq("user_id", id)
+    .order("joined_at", { ascending: false });
+  return {
+    error: result.error,
+    groups: (result.data ?? []).flatMap((item) =>
+      item.group ? [{ ...item.group, role: item.role }] : [],
+    ),
+  };
+}
