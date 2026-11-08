@@ -21,6 +21,9 @@
     "test:chat:e2e": "playwright test --config tests/auth.playwright.config.ts group-chat.spec.ts",
     "test:dm:db": "node --import tsx --test tests/dm.db.test.ts",
     "test:dm:e2e": "playwright test --config tests/auth.playwright.config.ts dm.spec.ts",
+    "test:legal": "node --import tsx --test tests/legal.test.ts",
+    "test:landing:e2e": "playwright test --config tests/auth.playwright.config.ts landing-legal.spec.ts",
+    "test:cross:e2e": "playwright test --config tests/auth.playwright.config.ts cross-taeil.spec.ts",
     "test:rls": "node --import tsx --test tests/rls.db.test.ts",
     "test:space": "node --import tsx --test tests/space.test.ts"
   },

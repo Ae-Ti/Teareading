@@ -85,6 +85,17 @@ export async function updateSession(request: NextRequest) {
       NextResponse.redirect(new URL(next, url.origin)),
     );
   }
+  // 랜딩(웅싯): 로그인 상태로 `/`에 오면 화면을 그리기 전에 대시보드로 보낸다 (깜박임·반복 이동 없음)
+  if (
+    userId &&
+    pathname === "/" &&
+    (request.method === "GET" || request.method === "HEAD")
+  ) {
+    return preserveSession(
+      response,
+      NextResponse.redirect(new URL("/dashboard", request.nextUrl.origin)),
+    );
+  }
   if (isProtectedPath(pathname) || isAuthPath(pathname)) {
     response.headers.set("Cache-Control", "private, no-store");
   }
