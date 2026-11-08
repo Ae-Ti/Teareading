@@ -52,13 +52,25 @@ export function formatKoreanDate(iso: string | Date, withWeekday = false) {
   }).format(new Date(iso));
 }
 
+// ko-KR 시각 표기는 Node(PM)와 브라우저(오후)가 달라 서버·브라우저 화면이 어긋난다. 직접 조립한다.
+export function formatKoreanTime(iso: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: TZ,
+    hour: "numeric",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const hour = Number(parts.find((p) => p.type === "hour")?.value);
+  const minute = parts.find((p) => p.type === "minute")?.value;
+  return `${hour < 12 ? "오전" : "오후"} ${hour % 12 || 12}:${minute}`;
+}
+
 export function formatKoreanDateTime(iso: string) {
-  return new Intl.DateTimeFormat("ko-KR", {
+  const date = new Intl.DateTimeFormat("ko-KR", {
     timeZone: TZ,
     year: "numeric",
     month: "long",
     day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
   }).format(new Date(iso));
+  return `${date} ${formatKoreanTime(iso)}`;
 }

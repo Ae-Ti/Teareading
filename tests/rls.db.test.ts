@@ -2,13 +2,16 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { test } from "node:test";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  type RealtimeChannel,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 
 // 테이블을 돌며 검사하므로 타입이 없는 클라이언트를 쓴다.
 if (existsSync(".env.local")) process.loadEnvFile(".env.local");
 
 // D6 RLS 점검: 다른 계정·비로그인으로 남의 데이터를 조회·수정·삭제하려 하면 모두 실패해야 한다.
-// 단체 채팅·DM 테이블이 생기면 같은 방식으로 여기에 추가한다.
 test("태일 담당 테이블 RLS 점검", async (t) => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -31,10 +34,12 @@ test("태일 담당 테이블 RLS 점검", async (t) => {
     });
     assert.equal(error, null);
     assert.ok(data.user && data.session);
+    await c.realtime.setAuth(data.session.access_token);
     return { c, id: data.user.id };
   }
   const { c: a, id: idA } = await signUp("A");
   const { c: b, id: idB } = await signUp("B");
+  const { c: third } = await signUp("C");
   const anon = client();
 
   // 결과가 "오류" 또는 "빈 결과"면 막힌 것으로 본다 (RLS는 보통 조용히 0행을 돌려준다).
@@ -58,6 +63,10 @@ test("태일 담당 테이블 RLS 점검", async (t) => {
       "group_members",
       "space_visits",
       "space_avatars",
+      "group_messages",
+      "dm_threads",
+      "dm_messages",
+      "blocks",
       "events",
     ] as const) {
       const res = await c.from(table).select("*").limit(1);
@@ -334,16 +343,345 @@ test("태일 담당 테이블 RLS 점검", async (t) => {
       },
     );
 
+    async function makeGroup(name: string) {
+      const group = await a
+        .from("groups")
+        .insert({ name: `${name} ${suffix}`, owner_id: idA })
+        .select("id")
+        .single();
+      assert.equal(group.error, null);
+      const groupId = group.data!.id as string;
+      const join = await b
+        .from("group_members")
+        .insert({ group_id: groupId, user_id: idB, role: "member" });
+      assert.equal(join.error, null);
+      return groupId;
+    }
+
+    await t.test(
+      "단체 채팅: 비멤버 조회·전송, 위조, 수정·삭제 불가, 탈퇴하면 차단",
+      async () => {
+        const groupId = await makeGroup("채팅 점검");
+        const clientId = randomUUID();
+        const sent = await a
+          .from("group_messages")
+          .insert({
+            group_id: groupId,
+            client_id: clientId,
+            body: "모임 안의 말",
+            created_at: "2000-01-01T00:00:00Z",
+          })
+          .select("id,created_at")
+          .single();
+        assert.equal(sent.error, null);
+        const messageId = sent.data!.id as string;
+        assert.notEqual(
+          new Date(sent.data!.created_at as string).getUTCFullYear(),
+          2000,
+          "작성 시각 위조는 무시되어야 함",
+        );
+
+        const member = await b
+          .from("group_messages")
+          .select("id")
+          .eq("group_id", groupId);
+        assert.equal(member.data?.length, 1, "멤버는 읽을 수 있어야 함");
+        assertBlocked(
+          await third
+            .from("group_messages")
+            .select("id")
+            .eq("group_id", groupId),
+          "비멤버가 채팅 조회",
+        );
+        const outsider = await third.from("group_messages").insert({
+          group_id: groupId,
+          client_id: randomUUID(),
+          body: "끼어들기",
+        });
+        assert.ok(outsider.error, "비멤버가 채팅 전송");
+        const spoof = await b.from("group_messages").insert({
+          group_id: groupId,
+          sender_id: idA,
+          client_id: randomUUID(),
+          body: "A인 척",
+        });
+        assert.ok(spoof.error, "다른 사람 이름으로 전송");
+        assertBlocked(
+          await a
+            .from("group_messages")
+            .update({ body: "고침" })
+            .eq("id", messageId)
+            .select("id"),
+          "메시지 수정",
+        );
+        assertBlocked(
+          await a
+            .from("group_messages")
+            .delete()
+            .eq("id", messageId)
+            .select("id"),
+          "메시지 삭제",
+        );
+
+        const retry = await a.from("group_messages").insert({
+          group_id: groupId,
+          client_id: clientId,
+          body: "모임 안의 말",
+        });
+        assert.equal(retry.error?.code, "23505", "재전송은 중복으로 막혀야 함");
+        const sameClientOther = await b.from("group_messages").insert({
+          group_id: groupId,
+          client_id: clientId,
+          body: "같은 client_id",
+        });
+        assert.equal(
+          sameClientOther.error,
+          null,
+          "남의 client_id로 내 전송이 막히면 안 됨",
+        );
+
+        const left = await b
+          .from("group_members")
+          .delete()
+          .eq("group_id", groupId)
+          .eq("user_id", idB)
+          .select("user_id");
+        assert.equal(left.data?.length, 1);
+        assertBlocked(
+          await b.from("group_messages").select("id").eq("group_id", groupId),
+          "탈퇴 후 채팅 조회",
+        );
+        const afterLeave = await b.from("group_messages").insert({
+          group_id: groupId,
+          client_id: randomUUID(),
+          body: "탈퇴 후 전송",
+        });
+        assert.ok(afterLeave.error, "탈퇴 후 채팅 전송");
+      },
+    );
+
+    await t.test(
+      "실시간 수신: 비멤버와 탈퇴자에게는 채팅이 전달되지 않는다",
+      async () => {
+        const groupId = await makeGroup("실시간 점검");
+        const received = { member: 0, outsider: 0 };
+        const listen = (c: SupabaseClient, who: keyof typeof received) =>
+          new Promise<RealtimeChannel>((resolve, reject) => {
+            const channel = c
+              .channel(`rls-${who}-${suffix}`)
+              .on(
+                "postgres_changes",
+                {
+                  event: "INSERT",
+                  schema: "public",
+                  table: "group_messages",
+                  filter: `group_id=eq.${groupId}`,
+                },
+                () => {
+                  received[who]++;
+                },
+              )
+              .subscribe((status) => {
+                if (status === "SUBSCRIBED") resolve(channel);
+                if (status === "CHANNEL_ERROR" || status === "TIMED_OUT")
+                  reject(new Error(`${who} 구독 실패: ${status}`));
+              });
+          });
+        const channels = await Promise.all([
+          listen(b, "member"),
+          listen(third, "outsider"),
+        ]);
+        const sleep = (ms: number) =>
+          new Promise((resolve) => setTimeout(resolve, ms));
+        const send = (body: string) =>
+          a.from("group_messages").insert({
+            group_id: groupId,
+            client_id: randomUUID(),
+            body,
+          });
+
+        try {
+          // 구독이 서버에 자리 잡을 때까지 멤버가 받을 때까지 다시 보낸다
+          for (let i = 0; i < 20 && received.member === 0; i++) {
+            assert.equal((await send(`확인 ${i}`)).error, null);
+            await sleep(500);
+          }
+          assert.ok(received.member > 0, "멤버는 실시간으로 받아야 함");
+          await sleep(1000);
+          assert.equal(received.outsider, 0, "비멤버에게 전달됨");
+
+          await b
+            .from("group_members")
+            .delete()
+            .eq("group_id", groupId)
+            .eq("user_id", idB);
+          await sleep(500);
+          const before = received.member;
+          assert.equal((await send("탈퇴 후 메시지")).error, null);
+          await sleep(2000);
+          assert.equal(received.member, before, "탈퇴자에게 전달됨");
+        } finally {
+          await Promise.allSettled([
+            b.removeChannel(channels[0]),
+            third.removeChannel(channels[1]),
+          ]);
+        }
+      },
+    );
+
+    await t.test(
+      "DM·차단: 제3자 조회·전송, 위조 불가, 차단하면 양쪽 전송 불가",
+      async () => {
+        const started = await a.rpc("start_dm", { p_other: idB });
+        assert.equal(started.error, null);
+        const threadId = (started.data as { id: string }).id;
+        const again = await b.rpc("start_dm", { p_other: idA });
+        assert.deepEqual(again.data, { id: threadId, created: false });
+        assert.ok((await a.rpc("start_dm", { p_other: idA })).error, "나와 DM");
+
+        const send = (c: SupabaseClient, body: string) =>
+          c.from("dm_messages").insert({
+            thread_id: threadId,
+            client_id: randomUUID(),
+            body,
+          });
+        assert.equal((await send(a, "둘만의 말")).error, null);
+
+        assertBlocked(
+          await third.from("dm_threads").select("id").eq("id", threadId),
+          "제3자가 대화방 조회",
+        );
+        assertBlocked(
+          await third
+            .from("dm_messages")
+            .select("id")
+            .eq("thread_id", threadId),
+          "제3자가 메시지 조회",
+        );
+        assert.deepEqual(
+          (await third.rpc("my_dm_threads")).data,
+          [],
+          "제3자 목록에 남의 대화가 보임",
+        );
+        assert.ok((await send(third, "끼어들기")).error, "제3자가 전송");
+        const [low, high] = [idA, idB].sort();
+        const forgedThread = await third
+          .from("dm_threads")
+          .insert({ user_a: low, user_b: high });
+        assert.ok(forgedThread.error, "제3자가 남들의 대화방 생성");
+        const spoof = await b.from("dm_messages").insert({
+          thread_id: threadId,
+          sender_id: idA,
+          client_id: randomUUID(),
+          body: "A인 척",
+        });
+        assert.ok(spoof.error, "다른 사람 이름으로 DM 전송");
+        assertBlocked(
+          await a
+            .from("dm_messages")
+            .update({ body: "고침" })
+            .eq("thread_id", threadId)
+            .select("id"),
+          "DM 수정",
+        );
+        assertBlocked(
+          await a
+            .from("dm_messages")
+            .delete()
+            .eq("thread_id", threadId)
+            .select("id"),
+          "DM 삭제",
+        );
+
+        const forgedBlock = await third
+          .from("blocks")
+          .insert({ blocker_id: idA, blocked_id: idB });
+        assert.ok(forgedBlock.error, "남의 이름으로 차단");
+        assert.equal(
+          (await b.from("blocks").insert({ blocked_id: idA })).error,
+          null,
+        );
+        try {
+          assert.ok((await send(a, "차단당한 쪽")).error, "차단당한 쪽 전송");
+          assert.ok((await send(b, "차단한 쪽")).error, "차단한 쪽 전송");
+          assertBlocked(
+            await a.from("blocks").select("blocker_id"),
+            "차단당한 쪽이 차단 목록 조회",
+          );
+          const leak = await third.rpc("is_blocked_between", {
+            p_a: idA,
+            p_b: idB,
+          });
+          assert.equal(leak.data, false, "제3자가 남의 차단 관계를 알아냄");
+          const history = await a
+            .from("dm_messages")
+            .select("id")
+            .eq("thread_id", threadId);
+          assert.equal(
+            history.data?.length,
+            1,
+            "지난 대화는 계속 읽을 수 있음",
+          );
+        } finally {
+          await b.from("blocks").delete().eq("blocked_id", idA);
+        }
+        assert.equal((await send(a, "차단 해제 뒤")).error, null);
+      },
+    );
+
+    await t.test(
+      "프로필 이미지: 남의 폴더 업로드·삭제, 형식 위반, 개수 초과 불가",
+      async () => {
+        const avatars = (c: SupabaseClient) => c.storage.from("avatars");
+        const webp = new Blob([new Uint8Array(32)], { type: "image/webp" });
+        const name = () => `${randomUUID()}.webp`;
+        const first = `${idA}/${name()}`;
+        const second = `${idA}/${name()}`;
+        assert.equal((await avatars(a).upload(first, webp)).error, null);
+        try {
+          assert.ok(
+            (await avatars(b).upload(`${idA}/${name()}`, webp)).error,
+            "남의 폴더에 업로드",
+          );
+          assertBlocked(await avatars(b).remove([first]), "남의 파일 삭제");
+          assert.equal(
+            (await avatars(a).list(idA)).data?.length,
+            1,
+            "삭제 시도 후에도 파일이 남아 있어야 함",
+          );
+          assert.ok(
+            (
+              await avatars(b).upload(
+                `${idB}/${name()}`,
+                new Blob([new Uint8Array(32)], { type: "image/png" }),
+              )
+            ).error,
+            "webp가 아닌 파일 업로드",
+          );
+          assert.equal((await avatars(a).upload(second, webp)).error, null);
+          assert.ok(
+            (await avatars(a).upload(`${idA}/${name()}`, webp)).error,
+            "세 번째 파일 업로드",
+          );
+        } finally {
+          await avatars(a).remove([first, second]);
+        }
+      },
+    );
+
     await t.test("권한 확인 함수는 비로그인이 호출할 수 없다", async () => {
       const res = await anon.rpc("is_group_member", {
         p_group_id: randomUUID(),
       });
       assert.ok(res.error);
+      assert.ok((await anon.rpc("delete_my_account")).error);
+      assert.ok((await anon.rpc("start_dm", { p_other: idA })).error);
     });
   } finally {
     await Promise.allSettled([
       a.auth.signOut({ scope: "local" }),
       b.auth.signOut({ scope: "local" }),
+      third.auth.signOut({ scope: "local" }),
     ]);
   }
 });
