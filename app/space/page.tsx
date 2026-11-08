@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { TeahouseRoom } from "@/components/space/teahouse-room";
 import { LoadingBlock } from "@/components/ui/state";
 import { defaultLook, parseLook } from "@/lib/space/look";
+import { DEFAULT_ROOM_STYLE, parseRoomStyle } from "@/lib/space/room";
 import { requireUser } from "@/lib/supabase/user";
 
 export const metadata = { title: "찻집 · 티어리딩" };
@@ -26,23 +27,41 @@ export default function Page() {
 
 async function Room() {
   const { supabase, userId } = await requireUser("/space");
-  const [profile, running, avatar] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("nickname, avatar_url")
-      .eq("id", userId)
-      .single(),
-    supabase
-      .from("timer_sessions")
-      .select("activity, started_at")
-      .eq("status", "running")
-      .maybeSingle(),
-    supabase
-      .from("space_avatars")
-      .select("look")
-      .eq("user_id", userId)
-      .maybeSingle(),
-  ]);
+  const count = (table: "reading_logs" | "tea_columns") =>
+    supabase.from(table).select("id", { count: "exact", head: true });
+  const [profile, running, avatar, room, books, columns, tea, days] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("nickname, avatar_url")
+        .eq("id", userId)
+        .single(),
+      supabase
+        .from("timer_sessions")
+        .select("activity, started_at")
+        .eq("status", "running")
+        .maybeSingle(),
+      supabase
+        .from("space_avatars")
+        .select("look")
+        .eq("user_id", userId)
+        .maybeSingle(),
+      supabase
+        .from("space_rooms")
+        .select("style")
+        .eq("user_id", userId)
+        .maybeSingle(),
+      count("reading_logs"),
+      count("tea_columns"),
+      supabase
+        .from("timer_sessions")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "completed")
+        .eq("activity", "tea"),
+      supabase
+        .from("attendance_days")
+        .select("day", { count: "exact", head: true }),
+    ]);
 
   return (
     <TeahouseRoom
@@ -54,6 +73,13 @@ async function Room() {
       initialLook={parseLook(avatar.data?.look) ?? defaultLook(userId)}
       timer={(running.data?.activity as "tea" | "reading" | undefined) ?? null}
       timerStartedAt={running.data?.started_at ?? null}
+      initialRoomStyle={parseRoomStyle(room.data?.style) ?? DEFAULT_ROOM_STYLE}
+      roomStats={{
+        books: books.count ?? 0,
+        columns: columns.count ?? 0,
+        teaSessions: tea.count ?? 0,
+        attendanceDays: days.count ?? 0,
+      }}
     />
   );
 }

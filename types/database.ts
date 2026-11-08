@@ -599,6 +599,33 @@ export type Database = {
           },
         ];
       };
+      space_rooms: {
+        Row: {
+          style: NonNullable<Json>;
+          updated_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          style: NonNullable<Json>;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          style?: NonNullable<Json>;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "space_rooms_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       space_visits: {
         Row: {
           entered_at: string;
