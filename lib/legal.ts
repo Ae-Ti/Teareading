@@ -4,11 +4,11 @@
 export const LEGAL = {
   serviceName: "티어리딩",
   // 운영 주체 (개인 이름 또는 팀·사업자명)
-  operator: null as string | null,
+  operator: "배태일, 조웅식" as string | null,
   // 개인정보 보호책임자 이름·직책
-  privacyOfficer: null as string | null,
+  privacyOfficer: "조웅식" as string | null,
   // 문의·탈퇴·개인정보 요청을 받는 이메일
-  contactEmail: null as string | null,
+  contactEmail: "ungsikjo0601@gmail.com" as string | null,
   // Supabase 프로덕션 프로젝트 리전 (예: "대한민국(서울, ap-northeast-2)")
   dataRegion: null as string | null,
   // 시행일 (출시일)
