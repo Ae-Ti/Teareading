@@ -152,6 +152,21 @@ test("프로필에서 대화 시작·실시간·같은 대화 재진입·제3자
       }),
     ).toHaveCount(1);
 
+    // 채팅방을 떠나면 하단 탭(모바일)·푸터가 돌아온다 — 지나간 화면이 숨겨진 채 DOM에 남아 있어도
+    const tabs = pageB.getByRole("navigation", { name: "주요 메뉴" });
+    const footer = pageB.locator("footer.site-footer");
+    const mobile = testInfo.project.name === "mobile";
+    for (let round = 0; round < 2; round++) {
+      await expect(footer).toBeHidden();
+      if (mobile) await expect(tabs).toHaveCount(0);
+      await pageB.getByRole("link", { name: "← 목록" }).click();
+      await expect(pageB).toHaveURL("/dm");
+      await expect(footer).toBeVisible();
+      if (mobile) await expect(tabs).toBeVisible();
+      if (round === 0)
+        await pageB.getByRole("link", { name: new RegExp(nickA) }).click();
+    }
+
     const overflow = await pageB.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,
     );

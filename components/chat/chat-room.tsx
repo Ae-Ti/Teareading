@@ -38,6 +38,20 @@ import { createClient } from "@/lib/supabase/client";
 import { track } from "@/lib/track";
 import { Composer } from "./composer";
 
+// 채팅 화면이 보이는 동안만 <html data-chat>을 단다 (하단 탭·푸터 숨김, globals.css).
+// Next.js가 지나간 화면을 숨겨 둘 때(Activity) 레이아웃 효과 정리가 실행되므로 떠나면 바로 풀린다.
+let visibleChatRooms = 0;
+function useChatChrome() {
+  useLayoutEffect(() => {
+    visibleChatRooms += 1;
+    document.documentElement.dataset.chat = "";
+    return () => {
+      visibleChatRooms -= 1;
+      if (visibleChatRooms === 0) delete document.documentElement.dataset.chat;
+    };
+  }, []);
+}
+
 type Conn = "connecting" | "live" | "lost";
 
 const NEAR_BOTTOM = 96;
@@ -63,6 +77,7 @@ export function ChatRoom({
   placeholder: string;
   disabledReason?: string | null;
 }) {
+  useChatChrome();
   const [items, setItems] = useState<ChatItem[]>(() =>
     mergeMessages([], initial.messages),
   );

@@ -243,8 +243,10 @@ body {
   background: var(--tr-surface-sunken);
 }
 
-/* 채팅·DM처럼 화면 높이를 꽉 채우는 화면에서는 푸터를 숨긴다 */
-body:has(.chat-viewport) .site-footer {
+/* 채팅·DM처럼 화면 높이를 꽉 채우는 화면에서는 푸터를 숨긴다.
+   :has(.chat-viewport)를 쓰지 않는 이유: Next.js는 지나간 화면을 display:none으로 DOM에 남겨 두므로(Activity)
+   채팅방을 떠난 뒤에도 규칙이 계속 걸린다. 채팅 화면이 보이는 동안만 <html data-chat>을 단다. */
+:root[data-chat] .site-footer {
   display: none;
 }
 
@@ -256,11 +258,11 @@ body:has(.chat-viewport) .site-footer {
   padding-bottom: var(--app-tabbar-h);
 }
 @media (max-width: 767px) {
-  :root:has(.app-tabbar):not(:has(.chat-viewport)) {
+  :root:has(.app-tabbar):not([data-chat]) {
     --app-tabbar-h: calc(4rem + env(safe-area-inset-bottom));
   }
 }
 /* 채팅방에서는 하단 탭을 숨기고 입력창을 화면 맨 아래에 둔다 (키보드와 겹침 방지) */
-body:has(.chat-viewport) .app-tabbar {
+:root[data-chat] .app-tabbar {
   display: none;
 }
