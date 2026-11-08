@@ -9,7 +9,8 @@ export const CHAT_ROOMS = {
     table: "group_messages",
     column: "group_id",
     event: "group_message_sent",
-    denied: "모임에 가입한 멤버만 메시지를 보낼 수 있어요.",
+    denied:
+      "메시지를 보낼 수 없어요. 모임을 나갔거나 관리자가 메시지 보내기를 막았을 수 있어요.",
     // 삭제한 사람(deleted_by)도 profiles를 가리키므로 보낸 사람 관계를 이름으로 지정한다
     columns:
       "id, client_id, sender_id, body, created_at, deleted_at, sender:profiles!group_messages_sender_id_fkey(nickname, avatar_url)",

@@ -114,3 +114,33 @@ export function formatThreadTime(iso: string, now = new Date()) {
     day: "numeric",
   }).format(date);
 }
+
+// 메시지 탭에 함께 보이는 모임 단체 채팅방 (내가 참여한 모임, 마지막 메시지 순)
+export type GroupChatSummary = {
+  groupId: string;
+  name: string;
+  memberCount: number;
+  lastBody: string | null;
+  lastDeleted: boolean;
+  lastSender: string | null;
+  lastMine: boolean;
+  lastAt: string;
+};
+
+export async function listGroupChats(supabase: Client, me: string) {
+  const { data, error } = await supabase.rpc("my_group_chats");
+  if (error) return { chats: null, error };
+  return {
+    error: null,
+    chats: data.map((g): GroupChatSummary => ({
+      groupId: g.group_id,
+      name: g.name,
+      memberCount: g.member_count,
+      lastBody: g.last_body,
+      lastDeleted: g.last_deleted,
+      lastSender: g.last_sender_nickname,
+      lastMine: g.last_sender_id === me,
+      lastAt: g.last_at ?? g.joined_at,
+    })),
+  };
+}

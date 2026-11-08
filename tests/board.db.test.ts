@@ -70,11 +70,12 @@ test("게시판: 작성자 권한·추천·댓글·조회수", async (t) => {
         .from("posts")
         .insert({ title: "숫자 조작", body: "x", like_count: 999 });
       assert.ok(inflated.error, "추천 수 직접 입력 불가");
-      for (const bad of [
+      const bads: { title: string; body: string; category?: string }[] = [
         { title: "a", body: "본문" },
         { title: "제목", body: "   " },
         { title: "제목", body: "x", category: "notice" },
-      ]) {
+      ];
+      for (const bad of bads) {
         const res = await a.c.from("posts").insert(bad);
         assert.ok(res.error, `잘못된 값 거부: ${JSON.stringify(bad)}`);
       }

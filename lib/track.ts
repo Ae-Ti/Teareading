@@ -20,7 +20,8 @@ export type EventName =
   | "group_joined"
   | "group_message_sent"
   | "dm_started"
-  | "dm_message_sent";
+  | "dm_message_sent"
+  | "post_created";
 
 export type Device = "desktop" | "mobile";
 

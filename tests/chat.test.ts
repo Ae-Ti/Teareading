@@ -122,3 +122,16 @@ test("client_id는 UUID v4 형식이다", () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
 });
+
+test("삭제된 메시지는 늦게 온 옛 내용으로 되돌아가지 않는다", () => {
+  const original = msg(1, { body: "광고" });
+  let items = mergeMessages([], [original]);
+  items = mergeMessages(items, [
+    { ...original, body: "", deleted_at: "2026-11-08T03:01:00+00:00" },
+  ]);
+  // 실시간으로 늦게 도착한 INSERT(삭제 전 내용)
+  items = mergeMessages(items, [original]);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].body, "");
+  assert.equal(items[0].deleted_at, "2026-11-08T03:01:00+00:00");
+});

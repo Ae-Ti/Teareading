@@ -34,13 +34,27 @@ async function GroupChat({ params }: { params: Promise<{ id: string }> }) {
   if (!group.data) return <NotFound />;
 
   // 화면 안내용 확인. 실제 조회·전송 권한은 RLS(is_group_member)가 막는다.
+  // 역할 표시(모임장·부모임장)와 내 권한·전송 제한 여부
+  const [roster, mute] = await Promise.all([
+    supabase
+      .from("group_members")
+      .select("user_id, role")
+      .eq("group_id", id)
+      .in("role", ["owner", "manager"]),
+    supabase
+      .from("group_mutes")
+      .select("user_id")
+      .eq("group_id", id)
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
   const membership = await supabase
     .from("group_members")
-    .select("user_id")
+    .select("user_id, role")
     .eq("group_id", id)
     .eq("user_id", userId)
     .maybeSingle();
-  if (membership.error) return <LoadError id={id} />;
+  if (membership.error || roster.error) return <LoadError id={id} />;
   if (!membership.data)
     return (
       <StateMessage
@@ -54,6 +68,11 @@ async function GroupChat({ params }: { params: Promise<{ id: string }> }) {
   const initial = await fetchMessages(supabase, { kind: "group", id });
   if (initial.error) return <LoadError id={id} />;
   const memberCount = group.data.group_members[0]?.count ?? 0;
+  const roles = Object.fromEntries(
+    (roster.data ?? []).map((r) => [r.user_id, r.role as "owner" | "manager"]),
+  );
+  const myRole = membership.data.role;
+  const canModerate = myRole === "owner" || myRole === "manager";
 
   return (
     <>
@@ -72,13 +91,20 @@ async function GroupChat({ params }: { params: Promise<{ id: string }> }) {
         </span>
       </header>
       <ChatRoom
-        key={id}
+        key={`${id}:${mute.data ? "muted" : ""}`}
         room={{ kind: "group", id }}
         me={userId}
         initial={initial}
         emptyTitle="아직 대화가 없어요"
         emptyDescription="모임 사람들에게 첫 인사를 건네 보세요."
         placeholder="메시지를 입력하세요"
+        roles={roles}
+        canModerate={canModerate}
+        disabledReason={
+          mute.data
+            ? "모임 관리자가 메시지 보내기를 막았어요. 읽기만 할 수 있어요."
+            : null
+        }
       />
     </>
   );

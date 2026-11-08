@@ -4,6 +4,7 @@ const PROTECTED_PATHS = [
   "/space",
   "/me",
   "/community",
+  "/board",
   "/groups",
   "/dm",
   "/mypage",

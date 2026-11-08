@@ -60,13 +60,17 @@ export function mergeMessages(
     else local.push(item);
   }
   for (const m of incoming) {
-    confirmed.set(messageKey(m), {
+    const key = messageKey(m);
+    const prev = confirmed.get(key);
+    // 삭제는 되돌릴 수 없다: 늦게 도착한 옛 내용(실시간 지연 등)이 삭제 표시를 덮지 않게 한다
+    const keepDeleted = Boolean(prev?.deleted_at) && !m.deleted_at;
+    confirmed.set(key, {
       id: m.id,
       client_id: m.client_id,
       sender_id: m.sender_id,
-      body: m.body,
+      body: keepDeleted ? prev!.body : m.body,
       created_at: m.created_at,
-      deleted_at: m.deleted_at ?? null,
+      deleted_at: keepDeleted ? prev!.deleted_at : (m.deleted_at ?? null),
       status: "sent",
     });
   }

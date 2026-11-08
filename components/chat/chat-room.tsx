@@ -65,6 +65,8 @@ export function ChatRoom({
   emptyDescription,
   placeholder,
   disabledReason,
+  roles,
+  canModerate = false,
 }: {
   room: ChatRoomRef;
   me: string;
@@ -77,6 +79,9 @@ export function ChatRoom({
   emptyDescription: string;
   placeholder: string;
   disabledReason?: string | null;
+  // 단체 채팅: 모임장·부모임장 표시와 메시지 삭제 권한
+  roles?: Record<string, "owner" | "manager">;
+  canModerate?: boolean;
 }) {
   useChatChrome();
   const [items, setItems] = useState<ChatItem[]>(() =>
@@ -142,6 +147,11 @@ export function ChatRoom({
         setItems((s) => mergeMessages(s, res.messages));
         return;
       }
+      // 최근 메시지를 다시 받아 구독이 걸리기 전에 일어난 변경(관리자 삭제 등)도 반영한다
+      const recent = await fetchMessages(supabase, room);
+      if (recent.error || disposed) return;
+      addProfiles(recent.profiles);
+      setItems((s) => mergeMessages(s, recent.messages));
       let after: Cursor = newest;
       for (let page = 0; page < 20; page++) {
         const res = await fetchNewer(supabase, room, after);
@@ -169,17 +179,30 @@ export function ChatRoom({
           setItems((s) => mergeMessages(s, [m]));
           void ensureProfile(m.sender_id);
         },
-      )
-      .subscribe((status) => {
-        if (disposed) return;
-        if (status === "SUBSCRIBED") {
-          setConn("live");
-          void catchUp();
-          timers.push(setTimeout(() => void catchUp(), 3000));
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          setConn("lost");
-        }
-      });
+      );
+    // 단체 채팅: 모임장·부모임장이 지운 메시지가 모두의 화면에서 바로 바뀐다
+    if (room.kind === "group")
+      channel.on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table,
+          filter: `${column}=eq.${room.id}`,
+        },
+        (payload) =>
+          setItems((s) => mergeMessages(s, [payload.new as ChatMessage])),
+      );
+    channel.subscribe((status) => {
+      if (disposed) return;
+      if (status === "SUBSCRIBED") {
+        setConn("live");
+        void catchUp();
+        timers.push(setTimeout(() => void catchUp(), 3000));
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        setConn("lost");
+      }
+    });
 
     return () => {
       disposed = true;
@@ -286,6 +309,23 @@ export function ChatRoom({
     [room.kind, room.id, me, addProfiles],
   );
 
+  const [modError, setModError] = useState<string | null>(null);
+  const removeMessage = async (id: string) => {
+    setModError(null);
+    const { data, error } = await createClient().rpc("delete_group_message", {
+      p_message_id: id,
+    });
+    if (error || !data) {
+      setModError(
+        error?.code === "42501"
+          ? "모임장·부모임장만 메시지를 삭제할 수 있어요."
+          : "메시지를 삭제하지 못했어요. 다시 시도해 주세요.",
+      );
+      return;
+    }
+    setItems((s) => mergeMessages(s, [data as unknown as ChatMessage]));
+  };
+
   const send = (body: string) => {
     const clientId = newClientId();
     stickRef.current = true;
@@ -382,6 +422,12 @@ export function ChatRoom({
                     onDiscard={() =>
                       setItems((s) => removeLocal(s, messageKey(m)))
                     }
+                    role={roles?.[m.sender_id]}
+                    onDelete={
+                      canModerate && m.status === "sent" && !m.deleted_at
+                        ? () => removeMessage(m.id)
+                        : undefined
+                    }
                   />
                 </Fragment>
               );
@@ -400,6 +446,14 @@ export function ChatRoom({
         </button>
       )}
 
+      {modError && (
+        <p
+          role="alert"
+          className="border-t-2 border-ink bg-danger-soft px-3 py-1.5 text-center text-xs text-danger"
+        >
+          {modError}
+        </p>
+      )}
       <Composer
         onSend={send}
         placeholder={placeholder}
@@ -416,6 +470,8 @@ function MessageRow({
   profile,
   onRetry,
   onDiscard,
+  role,
+  onDelete,
 }: {
   item: ChatItem;
   mine: boolean;
@@ -423,16 +479,20 @@ function MessageRow({
   profile?: ChatProfile;
   onRetry: () => void;
   onDiscard: () => void;
+  role?: "owner" | "manager";
+  onDelete?: () => Promise<void>;
 }) {
   const nickname = profile?.nickname ?? "알 수 없음";
+  const deleted = Boolean(item.deleted_at);
   return (
     <li
+      data-status={item.status}
+      data-deleted={deleted || undefined}
       className={cn(
-        "flex gap-2",
+        "group/msg flex gap-2",
         first ? "mt-3" : "mt-1",
         mine ? "flex-row-reverse" : "flex-row",
       )}
-      data-status={item.status}
     >
       {!mine &&
         (first ? (
@@ -457,7 +517,19 @@ function MessageRow({
         )}
       >
         {!mine && first && (
-          <span className="text-xs font-bold">{nickname}</span>
+          <span className="flex items-center gap-1 text-xs font-bold">
+            {nickname}
+            {role && (
+              <span
+                className={cn(
+                  "rounded-sm border border-ink px-1 text-[10px]",
+                  role === "owner" ? "bg-yuja" : "bg-hojicha",
+                )}
+              >
+                {role === "owner" ? "모임장" : "부모임장"}
+              </span>
+            )}
+          </span>
         )}
         <div
           className={cn(
@@ -468,15 +540,29 @@ function MessageRow({
           <p
             className={cn(
               "rounded-lg border-2 px-3 py-2 leading-relaxed break-words whitespace-pre-wrap [overflow-wrap:anywhere]",
-              mine ? "bg-matcha" : "bg-surface",
-              item.status === "failed" ? "border-danger" : "border-ink",
+              deleted
+                ? "border-dashed bg-sunken"
+                : mine
+                  ? "bg-matcha"
+                  : "bg-surface",
+              item.status === "failed"
+                ? "border-danger"
+                : deleted
+                  ? "border-ink-subtle"
+                  : "border-ink",
               item.status === "sending" && "opacity-60",
             )}
           >
             <span className="sr-only">
               {mine ? "내 메시지: " : `${nickname}: `}
             </span>
-            {item.body}
+            {deleted ? (
+              <span className="text-sm text-ink-muted italic">
+                모임 관리자가 삭제한 메시지예요.
+              </span>
+            ) : (
+              item.body
+            )}
           </p>
           {item.status === "sent" && (
             <time
@@ -486,6 +572,7 @@ function MessageRow({
               {formatChatTime(item.created_at)}
             </time>
           )}
+          {onDelete && <DeleteMessageButton onDelete={onDelete} />}
           {item.status === "sending" && (
             <span className="shrink-0 text-[11px] text-ink-muted">
               보내는 중…
@@ -518,5 +605,37 @@ function MessageRow({
         )}
       </div>
     </li>
+  );
+}
+
+// 모임장·부모임장의 메시지 삭제. 실수를 막으려고 한 번 더 누르게 한다.
+function DeleteMessageButton({ onDelete }: { onDelete: () => Promise<void> }) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!confirming) return;
+    const t = setTimeout(() => setConfirming(false), 4000);
+    return () => clearTimeout(t);
+  }, [confirming]);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        if (!confirming) return setConfirming(true);
+        setBusy(true);
+        await onDelete();
+        setBusy(false);
+        setConfirming(false);
+      }}
+      className={cn(
+        "msg-actions shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold",
+        confirming
+          ? "bg-danger text-white"
+          : "text-ink-muted hover:bg-sunken hover:text-danger",
+      )}
+    >
+      {busy ? "삭제 중…" : confirming ? "정말 삭제" : "삭제"}
+    </button>
   );
 }
