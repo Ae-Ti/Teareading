@@ -13,6 +13,8 @@
     "test:auth": "node --import tsx --test tests/auth.test.ts",
     "test:auth:db": "node --import tsx --test tests/auth.db.test.ts",
     "test:auth:e2e": "playwright test --config tests/auth.playwright.config.ts",
+    "test:legal": "node --import tsx --test tests/legal.test.ts",
+    "test:landing:e2e": "playwright test --config tests/auth.playwright.config.ts landing-legal.spec.ts",
     "test:rls": "node --import tsx --test tests/rls.db.test.ts",
     "test:space": "node --import tsx --test tests/space.test.ts"
   },

@@ -31,6 +31,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
       </header>
       <main className="mx-auto w-full max-w-5xl flex-1 px-4">{children}</main>
+      <footer className="site-footer border-t-2 border-ink bg-surface">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-5 text-sm text-ink-muted">
+          <span className="font-mono font-extrabold text-ink">티어리딩</span>
+          <Link href="/guide" className="hover:text-ink">
+            다도 입문 가이드
+          </Link>
+          <Link href="/terms" className="hover:text-ink">
+            이용약관
+          </Link>
+          <Link href="/privacy" className="font-bold text-ink hover:underline">
+            개인정보처리방침
+          </Link>
+        </div>
+      </footer>
     </div>
   );
 }

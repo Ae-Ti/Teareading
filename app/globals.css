@@ -185,3 +185,55 @@ body {
   font-weight: 700;
   color: #2c2430;
 }
+
+/* 이용약관·개인정보처리방침 본문 */
+.legal-prose {
+  line-height: 1.8;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.legal-prose p + p,
+.legal-prose p + ul,
+.legal-prose ul + p,
+.legal-prose p + .legal-table,
+.legal-prose .legal-table + p {
+  margin-top: 0.75rem;
+}
+.legal-prose ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+.legal-prose ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+.legal-prose li + li {
+  margin-top: 0.25rem;
+}
+.legal-table {
+  width: 100%;
+  overflow-x: auto;
+}
+.legal-table table {
+  width: 100%;
+  min-width: 32rem;
+  border-collapse: collapse;
+  border: var(--tr-border-width) solid var(--tr-ink);
+  background: var(--tr-surface);
+  font-size: 0.9375rem;
+}
+.legal-table th,
+.legal-table td {
+  border: 1px solid var(--tr-ink-subtle);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+.legal-table th {
+  background: var(--tr-surface-sunken);
+}
+
+/* 채팅·DM처럼 화면 높이를 꽉 채우는 화면에서는 푸터를 숨긴다 */
+body:has(.chat-viewport) .site-footer {
+  display: none;
+}
