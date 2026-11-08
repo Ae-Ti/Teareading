@@ -211,12 +211,10 @@ test("DM 대화방 1개·참여자 권한·차단·목록", async (t) => {
         .insert({ blocker_id: a.id, blocked_id: third.id });
       const blockedStart = await start(third.c, a.id);
       assert.equal(blockedStart.error?.hint, "blocked");
-      const direct = await third.c
-        .from("dm_threads")
-        .insert({
-          user_a: [a.id, third.id].sort()[0],
-          user_b: [a.id, third.id].sort()[1],
-        });
+      const direct = await third.c.from("dm_threads").insert({
+        user_a: [a.id, third.id].sort()[0],
+        user_b: [a.id, third.id].sort()[1],
+      });
       assert.ok(direct.error);
 
       // B는 A의 차단을 풀 수 없다

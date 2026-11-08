@@ -68,13 +68,11 @@ test("프로필 수정·2MB 이하 이미지·삭제·중복 제출 방지·오�
   await form
     .getByLabel("한 줄 소개", { exact: true })
     .fill("말차와 책을 좋아해요.");
-  await form
-    .getByLabel("새 이미지 선택", { exact: true })
-    .setInputFiles({
-      name: "note.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from("not an image"),
-    });
+  await form.getByLabel("새 이미지 선택", { exact: true }).setInputFiles({
+    name: "note.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("not an image"),
+  });
   await expect(
     form.getByRole("button", { name: "프로필 저장", exact: true }),
   ).toBeDisabled();

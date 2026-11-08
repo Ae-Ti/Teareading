@@ -92,12 +92,18 @@ export function AuthForm({
       </p>
 
       {loggedOut && state.status === "idle" && (
-        <p role="status" className="mt-6 rounded-md border-2 border-ink bg-matcha p-3 text-sm font-bold">
+        <p
+          role="status"
+          className="mt-6 rounded-md border-2 border-ink bg-matcha p-3 text-sm font-bold"
+        >
           로그아웃했어요.
         </p>
       )}
       {!available && (
-        <p role="alert" className="mt-6 rounded-md border-2 border-danger bg-danger-soft p-3 text-sm text-danger">
+        <p
+          role="alert"
+          className="mt-6 rounded-md border-2 border-danger bg-danger-soft p-3 text-sm text-danger"
+        >
           {SERVICE_ERROR}
         </p>
       )}
