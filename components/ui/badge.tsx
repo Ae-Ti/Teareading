@@ -5,13 +5,14 @@ export function Badge({
   className,
   ...props
 }: React.HTMLAttributes<HTMLSpanElement> & {
-  tone?: "neutral" | "matcha" | "yuja" | "hongcha" | "danger";
+  tone?: "neutral" | "matcha" | "yuja" | "hongcha" | "hojicha" | "danger";
 }) {
   const tones = {
     neutral: "bg-surface",
     matcha: "bg-matcha",
     yuja: "bg-yuja",
     hongcha: "bg-hongcha",
+    hojicha: "bg-hojicha",
     danger: "bg-danger text-white",
   } as const;
 

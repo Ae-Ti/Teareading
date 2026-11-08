@@ -26,6 +26,10 @@
     "test:cross:e2e": "playwright test --config tests/auth.playwright.config.ts cross-taeil.spec.ts",
     "test:account:db": "node --import tsx --test tests/account.db.test.ts",
     "test:account:e2e": "playwright test --config tests/auth.playwright.config.ts account.spec.ts",
+    "test:moderation:db": "node --import tsx --test tests/moderation.db.test.ts",
+    "test:board:db": "node --import tsx --test tests/board.db.test.ts",
+    "test:board:e2e": "playwright test --config tests/auth.playwright.config.ts board.spec.ts",
+    "test:community:e2e": "playwright test --config tests/auth.playwright.config.ts community.spec.ts",
     "test:rls": "node --import tsx --test tests/rls.db.test.ts",
     "test:space": "node --import tsx --test tests/space.test.ts"
   },

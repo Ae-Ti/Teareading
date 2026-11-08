@@ -28,7 +28,7 @@ function Icon({ children }: { children: React.ReactNode }) {
   );
 }
 
-// 모바일 하단 탭: 매일 쓰는 다섯 곳
+// 모바일 하단 탭: 매일 쓰는 여섯 곳
 const TABS: Item[] = [
   {
     href: "/dashboard",
@@ -71,6 +71,16 @@ const TABS: Item[] = [
         <path d="M3 20a6 6 0 0 1 12 0" />
         <circle cx="17" cy="9" r="2.5" />
         <path d="M16 14.6a5 5 0 0 1 5 5.4" />
+      </Icon>
+    ),
+  },
+  {
+    href: "/board",
+    label: "게시판",
+    icon: (
+      <Icon>
+        <rect x="4" y="3" width="16" height="18" rx="2" />
+        <path d="M8 8h8M8 12h8M8 16h5" />
       </Icon>
     ),
   },
@@ -155,7 +165,7 @@ function Tabs({ pathname }: { pathname: string | null }) {
       aria-label="주요 메뉴"
       className="app-tabbar fixed inset-x-0 bottom-0 z-30 border-t-2 border-ink bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
     >
-      <ul className="grid h-16 grid-cols-5">
+      <ul className="grid h-16 grid-cols-6">
         {TABS.map((item) => {
           const active = isActive(item, pathname);
           return (
@@ -164,7 +174,7 @@ function Tabs({ pathname }: { pathname: string | null }) {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "m-1 flex flex-1 flex-col items-center justify-center gap-0.5 rounded-md text-[11px]",
+                  "m-0.5 flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-md text-[11px] whitespace-nowrap",
                   active ? "bg-matcha font-bold" : "text-ink-muted",
                 )}
               >

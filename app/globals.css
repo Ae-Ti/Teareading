@@ -266,3 +266,38 @@ body {
 :root[data-chat] .app-tabbar {
   display: none;
 }
+
+/* 모임 멤버 목록: 마우스가 있는 기기에서는 올렸을 때(또는 키보드 포커스)만 버튼을 보인다 */
+@media (hover: hover) {
+  /* 숨어 있는 동안 닉네임 자리를 차지하지 않도록 줄 오른쪽 위에 겹쳐 띄운다 */
+  .member-actions {
+    position: absolute;
+    top: 50%;
+    right: 0.375rem;
+    transform: translateY(-50%);
+    padding-left: 0.75rem;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--tr-surface) 0.75rem
+    );
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s;
+  }
+  .group\/member:hover .member-actions,
+  .group\/member:focus-within .member-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* 채팅 메시지 관리 버튼: 마우스가 있는 기기에서는 메시지에 올렸을 때만 보인다 */
+@media (hover: hover) {
+  .msg-actions:not(:focus-visible):not(.bg-danger) {
+    opacity: 0;
+  }
+  .group\/msg:hover .msg-actions {
+    opacity: 1;
+  }
+}

@@ -9,24 +9,33 @@ export const CHAT_ROOMS = {
     table: "group_messages",
     column: "group_id",
     event: "group_message_sent",
-    denied: "모임에 가입한 멤버만 메시지를 보낼 수 있어요.",
+    denied:
+      "메시지를 보낼 수 없어요. 모임을 나갔거나 관리자가 메시지 보내기를 막았을 수 있어요.",
+    // 삭제한 사람(deleted_by)도 profiles를 가리키므로 보낸 사람 관계를 이름으로 지정한다
+    columns:
+      "id, client_id, sender_id, body, created_at, deleted_at, sender:profiles!group_messages_sender_id_fkey(nickname, avatar_url)",
   },
   dm: {
     table: "dm_messages",
     column: "thread_id",
     event: "dm_message_sent",
     denied: "지금은 이 대화에 메시지를 보낼 수 없어요.",
+    columns:
+      "id, client_id, sender_id, body, created_at, sender:profiles!dm_messages_sender_id_fkey(nickname, avatar_url)",
   },
 } as const satisfies Record<
   string,
-  { table: string; column: string; event: EventName; denied: string }
+  {
+    table: string;
+    column: string;
+    event: EventName;
+    denied: string;
+    columns: string;
+  }
 >;
 
 export type ChatKind = keyof typeof CHAT_ROOMS;
 export type ChatRoomRef = { kind: ChatKind; id: string };
-
-const COLUMNS =
-  "id, client_id, sender_id, body, created_at, sender:profiles(nickname, avatar_url)";
 
 type Row = ChatMessage & { sender: ChatProfile | null };
 
@@ -62,7 +71,7 @@ export async function fetchMessages(
   before?: Cursor,
 ) {
   let query = table(supabase, room)
-    .select(COLUMNS)
+    .select(CHAT_ROOMS[room.kind].columns)
     .eq(CHAT_ROOMS[room.kind].column, room.id)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
@@ -83,7 +92,7 @@ export async function fetchNewer(
   after: Cursor,
 ) {
   const { data, error } = await table(supabase, room)
-    .select(COLUMNS)
+    .select(CHAT_ROOMS[room.kind].columns)
     .eq(CHAT_ROOMS[room.kind].column, room.id)
     .or(cursorFilter("gt", after))
     .order("created_at", { ascending: true })
@@ -139,7 +148,7 @@ export async function insertMessage(
       client_id: clientId,
       body,
     })
-    .select(COLUMNS)
+    .select(CHAT_ROOMS[room.kind].columns)
     .single();
 
   if (!error) {
@@ -150,7 +159,7 @@ export async function insertMessage(
 
   // 앞선 시도가 저장됐지만 응답을 못 받은 경우
   const existing = await table(supabase, room)
-    .select(COLUMNS)
+    .select(CHAT_ROOMS[room.kind].columns)
     .eq("sender_id", senderId)
     .eq("client_id", clientId)
     .maybeSingle();

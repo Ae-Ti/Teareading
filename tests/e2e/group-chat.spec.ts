@@ -97,7 +97,8 @@ test("두 계정 실시간 대화·비회원 차단·실패 후 재시도·중�
     else await input(pageA).press("Enter");
     await expect(input(pageA)).toHaveValue("");
     await expect(log(pageB).getByText("안녕하세요 첫 인사예요")).toBeVisible();
-    await expect(log(pageB).getByText(nickA, { exact: true })).toBeVisible();
+    // 보낸 사람 닉네임 옆에 역할(모임장) 표시
+    await expect(log(pageB)).toContainText(`${nickA}모임장`);
 
     // B → A 실시간, 줄바꿈 유지
     await input(pageB).fill("반가워요");

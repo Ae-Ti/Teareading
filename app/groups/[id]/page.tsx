@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { MiniAvatar } from "@/components/groups/avatar";
+import {
+  GroupSettingsButton,
+  MemberManageButton,
+} from "@/components/groups/group-admin";
+import { MemberRow, type MemberRole } from "@/components/groups/member-row";
 import { MembershipButton } from "@/components/groups/membership-button";
 import { TrackView } from "@/components/track-view";
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +55,25 @@ async function GroupDetail({ params }: { params: Promise<{ id: string }> }) {
   }
 
   const isOwner = group.owner_id === userId;
-  const isMember = members.some((m) => m.profile.id === userId);
+  const myRole = members.find((m) => m.profile.id === userId)?.role as
+    MemberRole | undefined;
+  const isMember = Boolean(myRole);
+  const isModerator = myRole === "owner" || myRole === "manager";
+  // 메시지 차단 목록은 모임 멤버만 볼 수 있다 (RLS)
+  const { data: mutes } = isMember
+    ? await supabase
+        .from("group_mutes")
+        .select("user_id")
+        .eq("group_id", group.id)
+    : { data: [] };
+  const muted = new Set((mutes ?? []).map((m) => m.user_id));
+  const roster = members.map((m) => ({
+    id: m.profile.id,
+    nickname: m.profile.nickname,
+    avatar_url: m.profile.avatar_url,
+    role: (m.role as MemberRole) ?? "member",
+    muted: muted.has(m.profile.id),
+  }));
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
@@ -62,6 +84,8 @@ async function GroupDetail({ params }: { params: Promise<{ id: string }> }) {
           <Badge tone="matcha">모임</Badge>
           {isOwner ? (
             <Badge tone="yuja">내가 모임장</Badge>
+          ) : myRole === "manager" ? (
+            <Badge tone="hojicha">내가 부모임장</Badge>
           ) : (
             isMember && <Badge>참여 중</Badge>
           )}
@@ -86,11 +110,22 @@ async function GroupDetail({ params }: { params: Promise<{ id: string }> }) {
               가입하면 단체 채팅방에 들어갈 수 있어요.
             </p>
           )}
-          {isOwner ? (
-            <LinkButton href={`/groups/${group.id}/manage`} variant="secondary">
-              모임 관리
-            </LinkButton>
-          ) : (
+          {isOwner && (
+            <GroupSettingsButton
+              groupId={group.id}
+              name={group.name}
+              description={group.description}
+            />
+          )}
+          {isModerator && (
+            <MemberManageButton
+              groupId={group.id}
+              myRole={myRole}
+              me={userId}
+              members={roster}
+            />
+          )}
+          {!isOwner && (
             <MembershipButton groupId={group.id} joined={isMember} />
           )}
         </div>
@@ -100,24 +135,14 @@ async function GroupDetail({ params }: { params: Promise<{ id: string }> }) {
         <h2 className="text-lg font-bold">
           멤버 <span className="font-mono">{members.length}</span>명
         </h2>
-        <ul className="flex flex-col gap-2">
-          {members.map((m) => (
-            <li key={m.profile.id}>
-              <Link
-                href={`/u/${m.profile.id}`}
-                className="flex items-center gap-3 rounded-md border-2 border-transparent p-1.5 hover:border-ink"
-              >
-                <MiniAvatar
-                  nickname={m.profile.nickname}
-                  src={m.profile.avatar_url}
-                />
-                <span className="font-bold">{m.profile.nickname}</span>
-                {m.role === "owner" && <Badge tone="yuja">모임장</Badge>}
-                {m.profile.id === userId && (
-                  <span className="text-xs text-ink-muted">나</span>
-                )}
-              </Link>
-            </li>
+        <ul className="flex flex-col gap-1">
+          {roster.map((m) => (
+            <MemberRow
+              key={m.id}
+              member={m}
+              isMe={m.id === userId}
+              muted={isModerator && m.muted}
+            />
           ))}
         </ul>
       </Card>
