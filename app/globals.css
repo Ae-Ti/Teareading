@@ -32,6 +32,10 @@
   --tr-shadow-sm: 2px 2px 0 var(--tr-ink);
   --tr-shadow: 4px 4px 0 var(--tr-ink);
   --tr-shadow-lg: 6px 6px 0 var(--tr-ink);
+
+  /* 전역 내비게이션이 차지하는 높이. 채팅처럼 화면 높이에 맞추는 화면이 쓴다. */
+  --app-header-h: 3.25rem;
+  --app-tabbar-h: 0px;
 }
 
 @theme inline {
@@ -184,4 +188,10 @@ body {
   font-size: 0.9375rem;
   font-weight: 700;
   color: #2c2430;
+}
+
+/* 채팅·DM: 입력창이 화면 아래에 붙고 메시지 목록만 스크롤된다. 모바일 키보드에 맞춰 dvh를 쓴다. */
+.chat-viewport {
+  height: calc(100dvh - var(--app-header-h) - var(--app-tabbar-h));
+  min-height: 22rem;
 }
