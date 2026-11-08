@@ -15,21 +15,28 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import { defaultLook, parseLook, type Look } from "@/lib/space/look";
 import {
+  doorAt,
   isWalkable,
+  MAPS,
   seatAt,
   seatById,
-  SPAWN,
   type Dir,
+  type Door,
+  type GameMap,
+  type MapId,
   type Point,
 } from "@/lib/space/map";
+import type { RoomStats, RoomStyle } from "@/lib/space/room";
 import { findPath, isValidPath, nearestWalkable } from "@/lib/space/path";
 import { createClient } from "@/lib/supabase/client";
 import { detectDevice } from "@/lib/track";
 import { AvatarEditor } from "./avatar-editor";
+import { RoomEditor } from "./room-editor";
 import { TeahouseScene } from "./pixel/scene";
+import type { Decor } from "./pixel/tiles";
 import {
   MOVE_EVENT,
-  SPACE_CHANNEL,
+  spaceChannel,
   type MoveMessage,
   type SpacePresence,
 } from "./presence";
@@ -73,17 +80,24 @@ export function TeahouseRoom({
   initialLook,
   timer,
   timerStartedAt,
+  roomStats,
+  initialRoomStyle,
 }: {
   me: Pick<SpacePresence, "user_id" | "nickname" | "avatar_url">;
   initialLook: Look;
   timer: SpacePresence["timer"];
   timerStartedAt: string | null;
+  roomStats: RoomStats;
+  initialRoomStyle: RoomStyle;
 }) {
   const [status, setStatus] = useState<Status>("connecting");
   const [people, setPeople] = useState<SpacePresence[]>([]);
   const [attempt, setAttempt] = useState(0);
   const [look, setLook] = useState(initialLook);
   const [editing, setEditing] = useState(false);
+  const [editingRoom, setEditingRoom] = useState(false);
+  const [roomStyle, setRoomStyle] = useState(initialRoomStyle);
+  const [mapId, setMapId] = useState<MapId>("teahouse");
   const [toast, setToast] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -96,6 +110,12 @@ export function TeahouseRoom({
   const myStateRef = useRef<SpacePresence | null>(null);
   const trackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mapRef = useRef<GameMap>(MAPS.teahouse);
+  const movingRef = useRef(false); // 문을 지나는 중에는 입력을 받지 않는다
+  const decorRef = useRef<Decor>({
+    style: initialRoomStyle,
+    stats: roomStats,
+  });
 
   const showToast = useCallback((text: string) => {
     setToast(text);
@@ -126,7 +146,7 @@ export function TeahouseRoom({
       if (!scene || !insideRef.current) return;
       const from = scene.planStart(me.user_id);
       if (!from) return;
-      const path = findPath(from, target);
+      const path = findPath(mapRef.current, from, target);
       if (!path) return;
       scene.walk(me.user_id, from, path, true);
       if (myStateRef.current?.seat) pushState({ seat: null });
@@ -139,48 +159,98 @@ export function TeahouseRoom({
     [me.user_id, pushState],
   );
 
+  // 맵을 바꾼다. 실시간 채널은 mapId를 따라 아래 effect에서 다시 연결된다.
+  const switchMap = useCallback((next: GameMap, tile: Point, dir: Dir) => {
+    if (trackTimer.current) clearTimeout(trackTimer.current);
+    mapRef.current = next;
+    othersRef.current = [];
+    setPeople([]);
+    setMapId(next.id);
+    setEditingRoom(false);
+    sceneRef.current?.setMap(
+      next,
+      next.id === "room" ? decorRef.current : undefined,
+      tile,
+      dir,
+    );
+    if (myStateRef.current)
+      myStateRef.current = {
+        ...myStateRef.current,
+        pos: tile,
+        dir,
+        seat: null,
+      };
+  }, []);
+
+  const goThrough = useCallback(
+    (door: Door) => {
+      if (movingRef.current) return;
+      movingRef.current = true;
+      sceneRef.current?.fadeThrough(() => {
+        switchMap(MAPS[door.to], door.at, door.face);
+        movingRef.current = false;
+      });
+    },
+    [switchMap],
+  );
+
   // 장면은 한 번만 만든다
   useEffect(() => {
-    const scene = new TeahouseScene(canvasRef.current!, overlayRef.current!, {
-      onTap: (tile) => {
-        if (!insideRef.current) return;
-        const seat = seatAt(tile.x, tile.y);
-        if (seat && seatTakenByOther(seat.id)) {
-          showToast("이미 다른 분이 앉아 있어요");
-          return;
-        }
-        const from = sceneRef.current?.planStart(me.user_id) ?? SPAWN;
-        const target = seat ? tile : nearestWalkable(tile, from);
-        if (target) moveMe(target);
+    const scene = new TeahouseScene(
+      canvasRef.current!,
+      overlayRef.current!,
+      mapRef.current,
+      undefined,
+      {
+        onTap: (tile) => {
+          if (!insideRef.current || movingRef.current) return;
+          const map = mapRef.current;
+          const seat = seatAt(map, tile.x, tile.y);
+          if (seat && seatTakenByOther(seat.id)) {
+            showToast("이미 다른 분이 앉아 있어요");
+            return;
+          }
+          const from = sceneRef.current?.planStart(me.user_id) ?? map.spawn;
+          const target = seat ? tile : nearestWalkable(map, tile, from);
+          if (target) moveMe(target);
+        },
+        onArrive: (tile, dir) => {
+          const map = mapRef.current;
+          const door = doorAt(map, tile.x, tile.y);
+          if (door) {
+            goThrough(door);
+            return;
+          }
+          const seat = seatAt(map, tile.x, tile.y);
+          if (seat && !seatTakenByOther(seat.id)) {
+            sceneRef.current?.sit(me.user_id, seat.face);
+            pushState({ pos: tile, dir: seat.face, seat: seat.id });
+          } else {
+            if (seat) showToast("이미 다른 분이 앉아 있어요");
+            pushState({ pos: tile, dir, seat: null });
+          }
+        },
       },
-      onArrive: (tile, dir) => {
-        const seat = seatAt(tile.x, tile.y);
-        if (seat && !seatTakenByOther(seat.id)) {
-          sceneRef.current?.sit(me.user_id, seat.face);
-          pushState({ pos: tile, dir: seat.face, seat: seat.id });
-        } else {
-          if (seat) showToast("이미 다른 분이 앉아 있어요");
-          pushState({ pos: tile, dir, seat: null });
-        }
-      },
-    });
+    );
     sceneRef.current = scene;
     return () => {
       scene.destroy();
       sceneRef.current = null;
     };
-  }, [me.user_id, moveMe, pushState, seatTakenByOther, showToast]);
+  }, [me.user_id, goThrough, moveMe, pushState, seatTakenByOther, showToast]);
 
   // 다른 사람 캐릭터를 Presence 상태에 맞춘다
   const syncOthers = useCallback(() => {
     const scene = sceneRef.current;
     if (!scene) return;
+    const map = mapRef.current;
     const now = Date.now();
     const present = new Set<string>();
     for (const p of othersRef.current) {
       present.add(p.user_id);
-      const seat = seatById(p.seat);
-      const pos = p.pos && isWalkable(p.pos.x, p.pos.y) ? p.pos : SPAWN;
+      const seat = seatById(map, p.seat);
+      const pos =
+        p.pos && isWalkable(map, p.pos.x, p.pos.y) ? p.pos : map.spawn;
       scene.upsert(p.user_id, {
         look: parseLook(p.look) ?? defaultLook(p.user_id),
         name: p.nickname,
@@ -195,10 +265,12 @@ export function TeahouseRoom({
     }
   }, [me.user_id]);
 
-  // 채널 연결은 입장 전부터 한다 (지금 누가 있는지 보여주기 위해). 입장 = track, 퇴장 = untrack.
+  // 공용 공간의 채널 연결은 입장 전부터 한다 (지금 누가 있는지 보여주기 위해). 입장 = track, 퇴장 = untrack.
+  // 내 방은 나만 들어오는 공간이라 채널을 열지 않는다. 그래서 다른 사람이 들어올 경로 자체가 없다.
   useEffect(() => {
+    if (!MAPS[mapId].shared) return;
     const supabase = createClient();
-    const channel = supabase.channel(SPACE_CHANNEL, {
+    const channel = supabase.channel(spaceChannel(mapId), {
       config: { presence: { key: me.user_id }, broadcast: { self: false } },
     });
     channelRef.current = channel;
@@ -216,33 +288,47 @@ export function TeahouseRoom({
       })
       .on("broadcast", { event: MOVE_EVENT }, ({ payload }) => {
         const msg = payload as MoveMessage;
+        const map = mapRef.current;
         if (!msg || msg.user_id === me.user_id || !msg.from) return;
         if (!othersRef.current.some((p) => p.user_id === msg.user_id)) return;
         if (
-          !isWalkable(msg.from.x, msg.from.y) ||
-          !isValidPath(msg.from, msg.path)
+          !isWalkable(map, msg.from.x, msg.from.y) ||
+          !isValidPath(map, msg.from, msg.path)
         )
           return;
         sceneRef.current?.walk(msg.user_id, msg.from, msg.path);
       })
       .subscribe((s) => {
-        if (s === "SUBSCRIBED")
-          setStatus((prev) => (prev === "connecting" ? "ready" : prev));
+        if (s === "SUBSCRIBED") {
+          if (insideRef.current && myStateRef.current) {
+            // 맵을 옮겼거나 다시 연결한 경우: 이 채널에서 다시 나타난다
+            void channel.track(myStateRef.current);
+            setStatus("inside");
+          } else {
+            setStatus((prev) => (prev === "connecting" ? "ready" : prev));
+          }
+        }
         if (s === "CHANNEL_ERROR" || s === "TIMED_OUT") setStatus("error");
       });
 
     return () => {
+      channelRef.current = null;
+      void supabase.removeChannel(channel);
+    };
+  }, [me.user_id, attempt, mapId, syncOthers]);
+
+  // 화면을 떠나면 체류 기록을 닫는다
+  useEffect(
+    () => () => {
       if (insideRef.current && visitRef.current) {
         void leaveSpace(visitRef.current, detectDevice());
       }
       insideRef.current = false;
       visitRef.current = null;
-      channelRef.current = null;
       myStateRef.current = null;
-      sceneRef.current?.remove(me.user_id);
-      void supabase.removeChannel(channel);
-    };
-  }, [me.user_id, attempt, syncOthers]);
+    },
+    [],
+  );
 
   // 타이머 분 표시는 30초마다 다시 계산한다
   useEffect(() => {
@@ -263,6 +349,7 @@ export function TeahouseRoom({
   const enter = useCallback(async () => {
     const channel = channelRef.current;
     if (!channel || insideRef.current) return;
+    const spawn = MAPS.teahouse.spawn;
     setStatus("entering");
     const state: SpacePresence = {
       ...me,
@@ -270,7 +357,7 @@ export function TeahouseRoom({
       timer_started_at: timerStartedAt,
       entered_at: new Date().toISOString(),
       look,
-      pos: SPAWN,
+      pos: spawn,
       dir: "up",
       seat: null,
     };
@@ -285,7 +372,7 @@ export function TeahouseRoom({
       look,
       name: me.nickname,
       status: timerStatus(timer, timerStartedAt, Date.now()),
-      tile: SPAWN,
+      tile: spawn,
       dir: "up",
       isMe: true,
     });
@@ -297,30 +384,37 @@ export function TeahouseRoom({
   }, [me, timer, timerStartedAt, look]);
 
   const leave = useCallback(async () => {
-    const channel = channelRef.current;
-    if (!channel || !insideRef.current) return;
+    if (!insideRef.current || movingRef.current) return;
     insideRef.current = false;
     myStateRef.current = null;
+    if (trackTimer.current) clearTimeout(trackTimer.current);
     sceneRef.current?.remove(me.user_id);
-    await channel.untrack();
-    setStatus("ready");
+    if (mapRef.current.id === "teahouse") {
+      await channelRef.current?.untrack();
+      setStatus("ready");
+    } else {
+      // 입장 화면은 항상 찻집이다
+      setStatus("connecting");
+      switchMap(MAPS.teahouse, MAPS.teahouse.spawn, "up");
+    }
     if (visitRef.current) {
       await leaveSpace(visitRef.current, detectDevice());
       visitRef.current = null;
     }
-  }, [me.user_id]);
+  }, [me.user_id, switchMap]);
 
   const onKeyDown = useCallback(
     (ev: KeyboardEvent) => {
       const dir = KEYS[ev.key];
-      if (!dir || !insideRef.current) return;
+      if (!dir || !insideRef.current || movingRef.current) return;
       ev.preventDefault();
       const scene = sceneRef.current;
       if (!scene || !scene.isIdle(me.user_id)) return;
       const from = scene.planStart(me.user_id)!;
       const to = { x: from.x + DELTA[dir].x, y: from.y + DELTA[dir].y };
-      const seat = seatAt(to.x, to.y);
-      if (isWalkable(to.x, to.y) && !(seat && seatTakenByOther(seat.id))) {
+      const map = mapRef.current;
+      const seat = seatAt(map, to.x, to.y);
+      if (isWalkable(map, to.x, to.y) && !(seat && seatTakenByOther(seat.id))) {
         moveMe(to);
       } else {
         scene.turn(me.user_id, dir);
@@ -348,8 +442,21 @@ export function TeahouseRoom({
     [me.user_id, me.nickname, timer, timerStartedAt, pushState, showToast],
   );
 
+  const onRoomSaved = useCallback(
+    (next: RoomStyle) => {
+      setRoomStyle(next);
+      setEditingRoom(false);
+      decorRef.current = { ...decorRef.current, style: next };
+      if (mapRef.current.id === "room")
+        sceneRef.current?.setDecor(decorRef.current);
+      showToast("방을 꾸몄어요");
+    },
+    [showToast],
+  );
+
   const inside = status === "inside";
   const others = people.filter((p) => p.user_id !== me.user_id);
+  const map = MAPS[mapId];
 
   return (
     <div className="flex flex-col gap-4">
@@ -362,9 +469,11 @@ export function TeahouseRoom({
               ? "지금은 아무도 없어요"
               : `지금 ${others.length}명이 머물고 있어요`)}
           {inside &&
-            (others.length === 0
-              ? "혼자 있어요 🍵"
-              : `${others.length}명과 함께 있어요 🍵`)}
+            (!map.shared
+              ? "내 방 · 나만 들어올 수 있어요 🔒"
+              : others.length === 0
+                ? "혼자 있어요 🍵"
+                : `${others.length}명과 함께 있어요 🍵`)}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           {timer && (
@@ -374,9 +483,15 @@ export function TeahouseRoom({
               </Badge>
             </Link>
           )}
+          {inside && <Badge tone="yuja">{map.title}</Badge>}
           <Button variant="secondary" onClick={() => setEditing(true)}>
             캐릭터 꾸미기
           </Button>
+          {inside && mapId === "room" && (
+            <Button variant="secondary" onClick={() => setEditingRoom(true)}>
+              방 꾸미기
+            </Button>
+          )}
           {inside ? (
             <Button variant="secondary" onClick={leave}>
               나가기
@@ -453,7 +568,8 @@ export function TeahouseRoom({
       </div>
       {inside && (
         <p className="text-xs text-ink-muted">
-          바닥을 누르면 걸어가요. 방석을 누르면 앉아요. 키보드는 방향키나 WASD.
+          바닥을 누르면 걸어가요. 방석을 누르면 앉고, 문을 밟으면 다른 곳으로
+          가요. 키보드는 방향키나 WASD.
         </p>
       )}
 
@@ -462,6 +578,14 @@ export function TeahouseRoom({
           initial={look}
           onClose={() => setEditing(false)}
           onSaved={onSaved}
+        />
+      )}
+      {editingRoom && (
+        <RoomEditor
+          initial={roomStyle}
+          stats={roomStats}
+          onClose={() => setEditingRoom(false)}
+          onSaved={onRoomSaved}
         />
       )}
     </div>

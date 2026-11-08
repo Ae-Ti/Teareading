@@ -177,6 +177,13 @@ body {
   color: var(--tr-ink);
   padding: 0 4px;
 }
+.space-label-place {
+  border: 1.5px solid var(--tr-ink);
+  border-radius: 3px;
+  background: #fbf8ef;
+  color: var(--tr-ink);
+  padding: 0 5px;
+}
 .space-textbox {
   border: 3px solid #4a4a5a;
   border-radius: 6px;

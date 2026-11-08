@@ -106,6 +106,7 @@ const userId = data?.claims?.sub;
 | `is_group_member(uuid)`, `is_group_owner(uuid)` | RLS용 권한 확인 함수. **단체 채팅 RLS에서 `is_group_member`를 쓰면 된다** | 태일 |
 | `space_visits` | 찻집 체류 이력(분석용). 실시간 입장자는 Realtime Presence 채널 `space:teahouse` | 태일 |
 | `space_avatars` | 찻집 캐릭터 꾸미기 값. 본인만 조회·저장. 다른 사람 캐릭터는 Presence로 받는다 | 태일 |
+| `space_rooms` | 내 방 벽지·바닥 값. 본인만 조회·저장 | 태일 |
 
 회원가입 시 닉네임은 `supabase.auth.signUp({ email, password, options: { data: { nickname } } })`로 넘긴다.
 
