@@ -58,6 +58,7 @@ function backend(
     stale?: boolean;
     raced?: boolean;
     trackingError?: boolean;
+    leftover?: string[];
   } = {},
 ) {
   const calls: { name: string; value?: unknown }[] = [];
@@ -119,6 +120,15 @@ function backend(
           });
           return {
             error: options.uploadError ? { message: "private error" } : null,
+          };
+        },
+        list: async (folder: string) => {
+          calls.push({ name: "list", value: folder });
+          return {
+            data: [oldPath, ...(options.leftover ?? [])].map((path) => ({
+              name: path.split("/")[1],
+            })),
+            error: null,
           };
         },
         getPublicUrl: (path: string) => ({
@@ -323,4 +333,21 @@ test("교체·삭제는 DB 성공 뒤 이전 파일을 정리하고 분석 오�
     removal.calls.find((call) => call.name === "remove")?.value,
     [oldPath],
   );
+});
+
+test("새 이미지 업로드 전, 정리되지 않고 남은 파일만 지우고 현재 이미지는 둔다", async () => {
+  const leftover = `${owner}/33333333-3333-4333-8333-333333333333.webp`;
+  const fake = backend({ leftover: [leftover] });
+  assert.equal(
+    (await saveProfile(form({}, await png()), fake.create)).status,
+    "success",
+  );
+  const order = fake.calls
+    .filter((call) => call.name === "remove" || call.name === "upload")
+    .map((call) => call.name);
+  // 남은 파일 정리 → 업로드 → (저장 성공 뒤) 이전 이미지 정리
+  assert.deepEqual(order, ["remove", "upload", "remove"]);
+  const removes = fake.calls.filter((call) => call.name === "remove");
+  assert.deepEqual(removes[0].value, [leftover]);
+  assert.deepEqual(removes[1].value, [oldPath]);
 });

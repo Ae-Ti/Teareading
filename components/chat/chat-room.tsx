@@ -33,6 +33,7 @@ import {
   fetchNewer,
   insertMessage,
   type ChatRoomRef,
+  type Cursor,
 } from "@/lib/chat/rooms";
 import { createClient } from "@/lib/supabase/client";
 import { track } from "@/lib/track";
@@ -141,14 +142,14 @@ export function ChatRoom({
         setItems((s) => mergeMessages(s, res.messages));
         return;
       }
-      let after = newest.created_at;
+      let after: Cursor = newest;
       for (let page = 0; page < 20; page++) {
         const res = await fetchNewer(supabase, room, after);
         if (res.error || disposed) return;
         addProfiles(res.profiles);
         setItems((s) => mergeMessages(s, res.messages));
         if (!res.hasMore) return;
-        after = res.messages[res.messages.length - 1].created_at;
+        after = res.messages[res.messages.length - 1];
       }
     };
 
@@ -194,7 +195,7 @@ export function ChatRoom({
     const oldest = items.find((m) => m.status === "sent");
     if (!oldest) return;
     setOlder("loading");
-    const res = await fetchMessages(createClient(), room, oldest.created_at);
+    const res = await fetchMessages(createClient(), room, oldest);
     if (res.error) {
       setOlder("error");
       return;

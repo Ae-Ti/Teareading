@@ -115,9 +115,10 @@ const sections: LegalSection[] = [
           드립니다.
         </li>
         <li>
-          이용자는 언제든 문의처({legalValue(LEGAL.contactEmail)})로 탈퇴를
-          요청할 수 있으며, 운영자는 지체 없이 처리합니다. 탈퇴하면 작성한
-          기록과 메시지가 함께 삭제되어 복구할 수 없습니다.
+          이용자는 언제든 마이페이지의 &lsquo;회원 탈퇴&rsquo;에서 직접
+          탈퇴하거나 문의처({legalValue(LEGAL.contactEmail)})로 요청할 수
+          있습니다. 탈퇴하면 작성한 기록과 메시지, 이용자가 모임장인 모임이 함께
+          삭제되어 복구할 수 없습니다.
         </li>
       </ul>
     ),

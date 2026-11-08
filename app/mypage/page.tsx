@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import {
@@ -53,7 +54,15 @@ async function MyPage() {
           <ProfileGroups result={groups} retryHref="/mypage" />
         </>
       )}
-      <LogoutButton />
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-dashed border-ink-subtle pt-2">
+        <LogoutButton />
+        <Link
+          href="/mypage/delete"
+          className="text-sm text-ink-muted underline underline-offset-4 hover:text-danger"
+        >
+          회원 탈퇴
+        </Link>
+      </div>
     </div>
   );
 }

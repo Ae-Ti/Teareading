@@ -513,6 +513,10 @@ export type Database = {
       };
     };
     Functions: {
+      delete_my_account: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
+      };
       dm_can_send: { Args: { p_thread_id: string }; Returns: boolean };
       finish_timer: {
         Args: { p_id: string; p_status: string };
@@ -540,6 +544,10 @@ export type Database = {
       is_group_member: { Args: { p_group_id: string }; Returns: boolean };
       is_group_owner: { Args: { p_group_id: string }; Returns: boolean };
       is_nickname_available: { Args: { p_nickname: string }; Returns: boolean };
+      my_avatar_file_count: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
       my_dm_threads: {
         Args: Record<PropertyKey, never>;
         Returns: {

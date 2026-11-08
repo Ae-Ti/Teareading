@@ -3,7 +3,12 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { test } from "node:test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { fetchMessages, fetchNewer, insertMessage } from "@/lib/chat/rooms";
+import {
+  fetchMessages,
+  fetchNewer,
+  insertMessage,
+  type Cursor,
+} from "@/lib/chat/rooms";
 import type { Database } from "@/types/database";
 
 if (existsSync(".env.local")) process.loadEnvFile(".env.local");
@@ -290,11 +295,7 @@ test("단체 채팅 권한·중복 방지·실시간 수신", async (t) => {
       const first = await fetchMessages(owner.c, room);
       assert.equal(first.messages.length, 50);
       assert.equal(first.hasMore, true);
-      const second = await fetchMessages(
-        owner.c,
-        room,
-        first.messages[0].created_at,
-      );
+      const second = await fetchMessages(owner.c, room, first.messages[0]);
       assert.equal(second.error, null);
       const all = [...second.messages, ...first.messages];
       assert.equal(new Set(all.map((m) => m.id)).size, all.length);
@@ -305,15 +306,40 @@ test("단체 채팅 권한·중복 방지·실시간 수신", async (t) => {
       // 오래 끊겼다가 돌아온 경우: 화면의 가장 최근 메시지 이후를 페이지 단위로 빠짐없이 받는다
       const anchor = all[all.length - 56];
       const gap: string[] = [];
-      let after = anchor.created_at;
+      let after: Cursor = anchor;
       for (;;) {
         const page = await fetchNewer(owner.c, room, after);
         assert.equal(page.error, null);
         gap.push(...page.messages.map((m) => m.body));
         if (!page.hasMore) break;
-        after = page.messages[page.messages.length - 1].created_at;
+        after = page.messages[page.messages.length - 1];
       }
       assert.deepEqual(gap, bodies);
+      // 한 번에 저장돼 작성 시각이 똑같은 메시지도 페이지 경계에서 빠지지 않는다
+      const batch = await (owner.c as unknown as SupabaseClient)
+        .from("group_messages")
+        .insert(
+          ["동시1", "동시2", "동시3"].map((body) => ({
+            group_id: groupId,
+            client_id: randomUUID(),
+            body,
+          })),
+        )
+        .select("id, client_id, sender_id, body, created_at");
+      assert.equal(batch.error, null);
+      const same = [...batch.data!].sort((x, y) => (x.id < y.id ? -1 : 1));
+      assert.equal(new Set(same.map((m) => m.created_at)).size, 1);
+      const beforeLast = await fetchMessages(owner.c, room, same[2]);
+      assert.deepEqual(
+        beforeLast.messages.slice(-2).map((m) => m.id),
+        [same[0].id, same[1].id],
+      );
+      const afterFirst = await fetchNewer(owner.c, room, same[0]);
+      assert.deepEqual(
+        afterFirst.messages.map((m) => m.id),
+        [same[1].id, same[2].id],
+      );
+
       const times = all.map((m) => Date.parse(m.created_at));
       assert.deepEqual(
         times,
