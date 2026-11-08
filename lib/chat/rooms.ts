@@ -68,6 +68,25 @@ export async function fetchMessages(
   return { error: null, ...split(rows), hasMore: rows.length === PAGE_SIZE };
 }
 
+// 끊긴 동안 온 메시지 채우기: after(DB가 준 created_at)보다 뒤의 메시지를 오래된 순으로 한 페이지
+export async function fetchNewer(
+  supabase: SupabaseClient<Database>,
+  room: ChatRoomRef,
+  after: string,
+) {
+  const { data, error } = await table(supabase, room)
+    .select(COLUMNS)
+    .eq(CHAT_ROOMS[room.kind].column, room.id)
+    .gt("created_at", after)
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(PAGE_SIZE);
+  if (error)
+    return { error, messages: [], profiles: {}, hasMore: false } as const;
+  const rows = data as unknown as Row[];
+  return { error: null, ...split(rows), hasMore: rows.length === PAGE_SIZE };
+}
+
 export type SendResult =
   | {
       ok: true;

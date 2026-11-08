@@ -177,6 +177,15 @@ test("DM 대화방 1개·참여자 권한·차단·목록", async (t) => {
         ).error,
       );
 
+      // 제3자는 남들 사이의 차단 여부를 알아낼 수 없다
+      const probe = await third.c.rpc("is_blocked_between", {
+        p_a: a.id,
+        p_b: b.id,
+      });
+      assert.equal(probe.data, false);
+      const own = await b.c.rpc("is_blocked_between", { p_a: b.id, p_b: a.id });
+      assert.equal(own.data, true);
+
       // 차단 목록은 차단한 본인만 본다
       const seenByB = await b.c.from("blocks").select("*");
       assert.equal(seenByB.data?.length, 0);

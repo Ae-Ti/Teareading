@@ -51,7 +51,8 @@ create trigger dm_messages_set_created_at
 
 -- ── 권한 확인 함수 (security definer: 다른 테이블 RLS를 우회해 판단만 한다) ──
 
--- 두 사람 사이에 어느 방향이든 차단이 있는가
+-- 두 사람 사이에 어느 방향이든 차단이 있는가.
+-- 호출자 본인이 두 사람 중 하나일 때만 답한다 (제3자가 남들의 차단 관계를 알아내지 못하게).
 create or replace function public.is_blocked_between(p_a uuid, p_b uuid)
 returns boolean
 language sql
@@ -59,11 +60,12 @@ stable
 security definer
 set search_path = ''
 as $$
-  select exists (
-    select 1 from public.blocks
-    where (blocker_id = p_a and blocked_id = p_b)
-       or (blocker_id = p_b and blocked_id = p_a)
-  );
+  select (select auth.uid()) in (p_a, p_b)
+    and exists (
+      select 1 from public.blocks
+      where (blocker_id = p_a and blocked_id = p_b)
+         or (blocker_id = p_b and blocked_id = p_a)
+    );
 $$;
 
 create or replace function public.is_dm_participant(p_thread_id uuid)
