@@ -247,3 +247,20 @@ body {
 body:has(.chat-viewport) .site-footer {
   display: none;
 }
+
+/* 전역 내비게이션 높이. 모바일 하단 탭이 있으면 그만큼 아래 여백을 둔다. */
+.app-header {
+  height: var(--app-header-h);
+}
+.app-frame {
+  padding-bottom: var(--app-tabbar-h);
+}
+@media (max-width: 767px) {
+  :root:has(.app-tabbar):not(:has(.chat-viewport)) {
+    --app-tabbar-h: calc(4rem + env(safe-area-inset-bottom));
+  }
+}
+/* 채팅방에서는 하단 탭을 숨기고 입력창을 화면 맨 아래에 둔다 (키보드와 겹침 방지) */
+body:has(.chat-viewport) .app-tabbar {
+  display: none;
+}

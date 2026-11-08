@@ -21,7 +21,7 @@ export function LogoutButton() {
       <button
         type="submit"
         disabled={pending || state.status === "success"}
-        className="min-h-11 rounded-md border border-neutral-500 px-4 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
+        className="inline-flex min-h-11 items-center rounded-md border-2 border-ink bg-surface px-4 text-sm font-bold shadow-hard transition enabled:hover:-translate-x-px enabled:hover:-translate-y-px disabled:opacity-60 disabled:shadow-none"
       >
         {pending ? "로그아웃하는 중…" : "로그아웃"}
       </button>
