@@ -209,9 +209,10 @@ test("공개 프로필은 참여 모임만 표시하고 이메일·개인 기록
     const body = await response!.text();
     expect(body).not.toContain(account.email);
     expect(body).not.toContain(secret);
+    // 다른 회원의 프로필에는 DM 시작 버튼이 있다 (DM 흐름은 dm.spec.ts에서 검증)
     await expect(
-      visitor.getByRole("link", { name: "메시지 보내기", exact: true }),
-    ).toHaveCount(0);
+      visitor.getByRole("button", { name: "메시지 보내기", exact: true }),
+    ).toBeVisible();
     await visitor.getByRole("link", { name: "모임 보기", exact: true }).click();
     await expect(visitor).toHaveURL(`/groups/${group.data!.id}`);
     for (const invalid of ["not-a-uuid", randomUUID()]) {

@@ -3,8 +3,11 @@ import {
   ProfileSummary,
   ProfileGroups,
 } from "@/components/profile/profile-summary";
+import { BlockButton } from "@/components/dm/block-button";
+import { StartDmButton } from "@/components/dm/start-dm-button";
 import { LinkButton } from "@/components/ui/link-button";
 import { LoadingBlock, StateMessage } from "@/components/ui/state";
+import { isBlockedByMe } from "@/lib/dm";
 import { getPublicProfile, getProfileGroups } from "@/lib/profile/data";
 import { requireUser } from "@/lib/supabase/user";
 
@@ -44,13 +47,32 @@ async function PublicProfile({ params }: PageProps<"/u/[id]">) {
         />
       </div>
     );
-  const groups = await getProfileGroups(supabase, id);
+  const isMe = userId === id;
+  const [groups, block] = await Promise.all([
+    getProfileGroups(supabase, id),
+    isMe ? null : isBlockedByMe(supabase, userId, id),
+  ]);
   return (
     <div className="mx-auto max-w-3xl space-y-7 py-8 md:py-10">
       <h1 className="text-3xl font-bold">공개 프로필</h1>
       <ProfileSummary profile={profile.data} />
-      {userId === id && (
+      {isMe ? (
         <LinkButton href="/mypage/edit">프로필 수정</LinkButton>
+      ) : (
+        <div className="flex flex-wrap items-start gap-3">
+          {block?.blocked ? (
+            <p className="w-full text-sm text-ink-muted">
+              차단한 회원이에요. 차단을 해제하면 메시지를 주고받을 수 있어요.
+            </p>
+          ) : (
+            <StartDmButton userId={id} />
+          )}
+          <BlockButton
+            userId={id}
+            nickname={profile.data.nickname}
+            blocked={Boolean(block?.blocked)}
+          />
+        </div>
       )}
       <ProfileGroups result={groups} retryHref={`/u/${id}`} />
     </div>

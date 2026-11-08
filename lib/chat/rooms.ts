@@ -3,13 +3,19 @@ import type { EventName } from "@/lib/track";
 import type { Database } from "@/types/database";
 import { PAGE_SIZE, type ChatMessage, type ChatProfile } from "./core";
 
-// 채팅방 종류별 설정. DM은 같은 구조로 여기에 추가한다.
+// 채팅방 종류별 설정. 단체 채팅과 DM이 같은 화면·전송 로직을 쓴다.
 export const CHAT_ROOMS = {
   group: {
     table: "group_messages",
     column: "group_id",
     event: "group_message_sent",
     denied: "모임에 가입한 멤버만 메시지를 보낼 수 있어요.",
+  },
+  dm: {
+    table: "dm_messages",
+    column: "thread_id",
+    event: "dm_message_sent",
+    denied: "지금은 이 대화에 메시지를 보낼 수 없어요.",
   },
 } as const satisfies Record<
   string,

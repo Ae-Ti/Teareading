@@ -19,6 +19,8 @@
     "test:chat": "node --import tsx --test tests/chat.test.ts",
     "test:chat:db": "node --import tsx --test tests/chat.db.test.ts",
     "test:chat:e2e": "playwright test --config tests/auth.playwright.config.ts group-chat.spec.ts",
+    "test:dm:db": "node --import tsx --test tests/dm.db.test.ts",
+    "test:dm:e2e": "playwright test --config tests/auth.playwright.config.ts dm.spec.ts",
     "test:rls": "node --import tsx --test tests/rls.db.test.ts",
     "test:space": "node --import tsx --test tests/space.test.ts"
   },
