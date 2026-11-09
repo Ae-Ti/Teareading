@@ -176,6 +176,50 @@ export type Database = {
         };
         Relationships: [];
       };
+      group_bans: {
+        Row: {
+          banned_by: string | null;
+          created_at: string;
+          group_id: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          banned_by?: string | null;
+          created_at?: string;
+          group_id: string;
+          user_id: string;
+        };
+        Update: {
+          banned_by?: string | null;
+          created_at?: string;
+          group_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "group_bans_banned_by_fkey";
+            columns: ["banned_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_bans_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_bans_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       group_members: {
         Row: {
           group_id: string;
@@ -798,11 +842,13 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      has_visible_text: { Args: { p_value: string }; Returns: boolean };
       is_blocked_between: {
         Args: { p_a: string; p_b: string };
         Returns: boolean;
       };
       is_dm_participant: { Args: { p_thread_id: string }; Returns: boolean };
+      is_group_banned: { Args: { p_group_id: string }; Returns: boolean };
       is_group_member: { Args: { p_group_id: string }; Returns: boolean };
       is_group_moderator: { Args: { p_group_id: string }; Returns: boolean };
       is_group_muted: { Args: { p_group_id: string }; Returns: boolean };

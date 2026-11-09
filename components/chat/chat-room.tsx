@@ -15,7 +15,6 @@ import { cn } from "@/components/ui/cn";
 import {
   addPending,
   formatChatDay,
-  formatChatTime,
   kstDay,
   mergeMessages,
   messageKey,
@@ -36,6 +35,7 @@ import {
   type Cursor,
 } from "@/lib/chat/rooms";
 import { createClient } from "@/lib/supabase/client";
+import { formatKoreanTime } from "@/lib/time";
 import { track } from "@/lib/track";
 import { Composer } from "./composer";
 
@@ -539,7 +539,7 @@ function MessageRow({
         >
           <p
             className={cn(
-              "rounded-lg border-2 px-3 py-2 leading-relaxed break-words whitespace-pre-wrap [overflow-wrap:anywhere]",
+              "rounded-lg border-2 px-3 py-2 leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]",
               deleted
                 ? "border-dashed bg-sunken"
                 : mine
@@ -569,7 +569,7 @@ function MessageRow({
               dateTime={item.created_at}
               className="shrink-0 text-[11px] text-ink-muted"
             >
-              {formatChatTime(item.created_at)}
+              {formatKoreanTime(item.created_at)}
             </time>
           )}
           {onDelete && <DeleteMessageButton onDelete={onDelete} />}

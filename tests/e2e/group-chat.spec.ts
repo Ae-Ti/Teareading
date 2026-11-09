@@ -106,6 +106,23 @@ test("두 계정 실시간 대화·비회원 차단·실패 후 재시도·중�
     await expect(log(pageA).getByText("반가워요")).toBeVisible();
     await expect(log(pageA).getByText(nickB, { exact: true })).toBeVisible();
 
+    // 띄어쓰기 없는 긴 메시지는 말풍선 안에서 줄바꿈된다 (태일 D6 9장 1번)
+    // 한글은 글자 사이에서 원래 줄이 바뀌므로 영문·숫자 연속 문자로 확인한다
+    const longBody = "a".repeat(400);
+    await input(pageB).fill(longBody);
+    await pageB.getByRole("button", { name: "보내기" }).click();
+    const bubble = log(pageB).locator("p", { hasText: longBody });
+    await expect(bubble).toBeVisible();
+    const [bubbleBox, logBox] = await Promise.all([
+      bubble.boundingBox(),
+      log(pageB).boundingBox(),
+    ]);
+    // 내 말풍선은 오른쪽 정렬이라 넘치면 왼쪽으로 나간다. 양쪽 끝을 모두 본다
+    expect(bubbleBox!.x).toBeGreaterThanOrEqual(logBox!.x);
+    expect(bubbleBox!.x + bubbleBox!.width).toBeLessThanOrEqual(
+      logBox!.x + logBox!.width,
+    );
+
     // 공백만 있으면 보내지 않는다
     await input(pageA).fill("   ");
     await expect(pageA.getByRole("button", { name: "보내기" })).toBeDisabled();

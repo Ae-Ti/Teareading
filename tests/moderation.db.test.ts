@@ -260,6 +260,68 @@ test("부모임장 지정·강제 퇴장·메시지 차단·메시지 삭제·�
         .eq("user_id", owner.id)
         .select("user_id");
       assert.equal(kickOwner.data?.length ?? 0, 0, "모임장은 나갈 수 없음");
+      // 내보내진 사람은 다시 가입할 수 없고, 본인 기록만 볼 수 있다
+      const rejoin = await manager.c
+        .from("group_members")
+        .insert({ group_id: groupId, user_id: manager.id });
+      assert.equal(rejoin.error?.code, "42501", "강제 퇴장 후 재가입 불가");
+      const mine = await manager.c.from("group_bans").select("user_id");
+      assert.deepEqual(
+        mine.data?.map((b) => b.user_id),
+        [manager.id],
+      );
+      const others = await member.c
+        .from("group_bans")
+        .select("user_id")
+        .eq("group_id", groupId);
+      assert.equal(others.data?.length, 0, "다른 멤버에게는 안 보임");
+      // 모임장이 아니면 재가입을 허용할 수 없고, 기록을 직접 쓸 수도 없다
+      const self = await manager.c
+        .from("group_bans")
+        .delete()
+        .eq("group_id", groupId)
+        .select("user_id");
+      assert.equal(self.data?.length ?? 0, 0, "본인이 기록을 지울 수 없음");
+      const forged = await member.c
+        .from("group_bans")
+        .insert({ group_id: groupId, user_id: member2.id });
+      assert.ok(forged.error, "퇴장 기록 위조 불가");
+
+      // 모임장이 허용하면 다시 가입할 수 있다
+      assert.equal(
+        (
+          await owner.c
+            .from("group_bans")
+            .delete()
+            .eq("group_id", groupId)
+            .eq("user_id", manager.id)
+        ).error,
+        null,
+      );
+      assert.equal(
+        (
+          await manager.c
+            .from("group_members")
+            .insert({ group_id: groupId, user_id: manager.id })
+        ).error,
+        null,
+      );
+      // 스스로 나간 사람은 기록이 남지 않아 자유롭게 돌아올 수 있다
+      await manager.c
+        .from("group_members")
+        .delete()
+        .eq("group_id", groupId)
+        .eq("user_id", manager.id);
+      assert.equal(
+        (
+          await owner.c
+            .from("group_bans")
+            .select("user_id")
+            .eq("group_id", groupId)
+        ).data?.length,
+        0,
+      );
+
       // 내보내진 부모임장은 메시지를 볼 수 없다
       const read = await manager.c
         .from("group_messages")

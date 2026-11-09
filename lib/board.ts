@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { isUuid } from "@/lib/records";
 import type { Database } from "@/types/database";
 
@@ -38,6 +38,13 @@ export const COMMENT_MAX = 1000;
 
 const chars = (v: string) => [...v].length;
 
+// 보이지 않는 문자(전각 공백, 한글 채움 문자, 폭 없는 문자 등)만 있는 입력을 막는다.
+// DB의 has_visible_text와 같은 기준이다.
+const INVISIBLE =
+  /[\s\u00A0\u00AD\u115F\u1160\u1680\u180E\u2000-\u200F\u2028-\u202F\u205F-\u2064\u3000\u3164\uFEFF\uFFA0]/g;
+export const hasVisibleText = (v: string) =>
+  v.replace(INVISIBLE, "").length > 0;
+
 // ── 입력 검사 (DB 제약과 같은 기준) ──
 export type PostValues = { category: Category; title: string; body: string };
 export type PostErrors = Partial<Record<keyof PostValues | "form", string>>;
@@ -54,9 +61,13 @@ export function validatePost(form: FormData) {
   };
   const errors: PostErrors = {};
   if (!isCategory(category)) errors.category = "말머리를 골라 주세요.";
-  if (chars(values.title) < TITLE_MIN || chars(values.title) > TITLE_MAX)
+  if (
+    !hasVisibleText(values.title) ||
+    chars(values.title) < TITLE_MIN ||
+    chars(values.title) > TITLE_MAX
+  )
     errors.title = `제목은 ${TITLE_MIN}~${TITLE_MAX}자로 입력해 주세요.`;
-  if (!values.body) errors.body = "내용을 입력해 주세요.";
+  if (!hasVisibleText(values.body)) errors.body = "내용을 입력해 주세요.";
   else if (chars(values.body) > BODY_MAX)
     errors.body = `내용은 ${BODY_MAX.toLocaleString()}자 이내로 입력해 주세요.`;
   return { values, errors: Object.keys(errors).length ? errors : null };
@@ -64,7 +75,8 @@ export function validatePost(form: FormData) {
 
 export function validateComment(raw: string) {
   const body = raw.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, "");
-  if (!body) return { body, error: "댓글 내용을 입력해 주세요." };
+  if (!hasVisibleText(body))
+    return { body, error: "댓글 내용을 입력해 주세요." };
   if (chars(body) > COMMENT_MAX)
     return {
       body,
@@ -154,7 +166,14 @@ const ORDER: Record<Sort, string> = {
   comments: "comment_count",
 };
 
-export async function listPosts(supabase: Client, query: BoardQuery) {
+export async function listPosts(
+  supabase: Client,
+  query: BoardQuery,
+): Promise<{
+  posts: PostSummary[];
+  total: number;
+  error: PostgrestError | null;
+}> {
   // 작성자 검색일 때만 inner join으로 닉네임 조건을 건다
   const author =
     query.q && query.field === "author"
@@ -183,6 +202,12 @@ export async function listPosts(supabase: Client, query: BoardQuery) {
     from,
     from + PAGE_SIZE - 1,
   );
+  // 글 수를 넘는 페이지(주소를 직접 입력, 마지막 글 삭제 등)는 마지막 페이지를 보여 준다
+  if (error?.code === "PGRST103" && query.page > 1) {
+    const first = await listPosts(supabase, { ...query, page: 1 });
+    const last = Math.ceil(first.total / PAGE_SIZE);
+    return last > 1 ? listPosts(supabase, { ...query, page: last }) : first;
+  }
   if (error) return { posts: [], total: 0, error };
   return {
     posts: (data ?? []) as unknown as PostSummary[],

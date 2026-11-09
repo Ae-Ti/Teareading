@@ -116,14 +116,6 @@ export function kstDay(iso: string) {
   );
 }
 
-export function formatChatTime(iso: string) {
-  return new Intl.DateTimeFormat("ko-KR", {
-    timeZone: "Asia/Seoul",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(iso));
-}
-
 export function formatChatDay(iso: string) {
   return new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
