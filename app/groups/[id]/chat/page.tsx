@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { ChatRoom } from "@/components/chat/chat-room";
+import { GroupMembersButton } from "@/components/chat/group-members-button";
+import type { MemberRole } from "@/components/groups/member-row";
 import { LoadingBlock, StateMessage } from "@/components/ui/state";
 import { fetchMessages } from "@/lib/chat/rooms";
+import { getGroup } from "@/lib/groups";
 import { isUuid } from "@/lib/records";
 import { requireUser } from "@/lib/supabase/user";
 
@@ -18,6 +21,12 @@ export default function Page(props: PageProps<"/groups/[id]/chat">) {
   );
 }
 
+const ROLE_ORDER: Record<MemberRole, number> = {
+  owner: 0,
+  manager: 1,
+  member: 2,
+};
+
 async function GroupChat({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { supabase, userId } = await requireUser(
@@ -25,37 +34,20 @@ async function GroupChat({ params }: { params: Promise<{ id: string }> }) {
   );
   if (!isUuid(id)) return <NotFound />;
 
-  const group = await supabase
-    .from("groups")
-    .select("id, name, group_members(count)")
-    .eq("id", id)
-    .maybeSingle();
-  if (group.error) return <LoadError id={id} />;
-  if (!group.data) return <NotFound />;
+  const { group, members, error } = await getGroup(supabase, id);
+  if (error) return <LoadError id={id} />;
+  if (!group) return <NotFound />;
 
   // 화면 안내용 확인. 실제 조회·전송 권한은 RLS(is_group_member)가 막는다.
-  // 역할 표시(모임장·부모임장)와 내 권한·전송 제한 여부
-  const [roster, mute] = await Promise.all([
-    supabase
-      .from("group_members")
-      .select("user_id, role")
-      .eq("group_id", id)
-      .in("role", ["owner", "manager"]),
-    supabase
-      .from("group_mutes")
-      .select("user_id")
-      .eq("group_id", id)
-      .eq("user_id", userId)
-      .maybeSingle(),
-  ]);
-  const membership = await supabase
-    .from("group_members")
-    .select("user_id, role")
+  const myRole = members.find((m) => m.profile.id === userId)?.role;
+  // 메시지 보내기를 막힌 멤버인지
+  const mute = await supabase
+    .from("group_mutes")
+    .select("user_id")
     .eq("group_id", id)
     .eq("user_id", userId)
     .maybeSingle();
-  if (membership.error || roster.error) return <LoadError id={id} />;
-  if (!membership.data)
+  if (!myRole)
     return (
       <StateMessage
         title="모임에 가입해야 볼 수 있어요"
@@ -67,12 +59,23 @@ async function GroupChat({ params }: { params: Promise<{ id: string }> }) {
 
   const initial = await fetchMessages(supabase, { kind: "group", id });
   if (initial.error) return <LoadError id={id} />;
-  const memberCount = group.data.group_members[0]?.count ?? 0;
+  // 메시지에 표시할 역할 (모임장·부모임장)
   const roles = Object.fromEntries(
-    (roster.data ?? []).map((r) => [r.user_id, r.role as "owner" | "manager"]),
+    members.flatMap((m) =>
+      m.role === "owner" || m.role === "manager"
+        ? [[m.profile.id, m.role as "owner" | "manager"]]
+        : [],
+    ),
   );
-  const myRole = membership.data.role;
   const canModerate = myRole === "owner" || myRole === "manager";
+  const roster = members
+    .map((m) => ({
+      id: m.profile.id,
+      nickname: m.profile.nickname,
+      avatar_url: m.profile.avatar_url,
+      role: m.role as MemberRole,
+    }))
+    .sort((x, y) => ROLE_ORDER[x.role] - ROLE_ORDER[y.role]);
 
   return (
     <>
@@ -84,11 +87,9 @@ async function GroupChat({ params }: { params: Promise<{ id: string }> }) {
           ← 모임
         </Link>
         <h1 className="min-w-0 flex-1 truncate text-lg font-bold md:text-2xl">
-          {group.data.name}
+          {group.name}
         </h1>
-        <span className="shrink-0 text-sm text-ink-muted">
-          멤버 <span className="font-mono">{memberCount}</span>명
-        </span>
+        <GroupMembersButton members={roster} me={userId} />
       </header>
       <ChatRoom
         key={`${id}:${mute.data ? "muted" : ""}`}
