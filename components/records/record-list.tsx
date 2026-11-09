@@ -12,7 +12,6 @@ import {
 } from "@/lib/records";
 import { requireUser } from "@/lib/supabase/user";
 import { formatKoreanDate } from "@/lib/time";
-import { RecordStatsSection } from "./record-stats";
 import { RecordTabs } from "./record-tabs";
 
 export function RecordListPage({ kind }: { kind: RecordKind }) {
@@ -20,7 +19,6 @@ export function RecordListPage({ kind }: { kind: RecordKind }) {
   return (
     <div className="flex flex-col gap-6 py-6 md:py-10">
       <h1 className="text-2xl font-bold md:text-3xl">내 기록</h1>
-      <RecordStatsSection />
       <div className="flex items-end justify-between gap-4">
         <div className="min-w-0 flex-1">
           <RecordTabs active={kind} />

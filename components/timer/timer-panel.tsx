@@ -335,7 +335,7 @@ export function TimerPanel({
               size="lg"
               href={
                 result.activity === "reading"
-                  ? "/me/reading/new"
+                  ? "/me/reading"
                   : "/me/columns/new"
               }
             >

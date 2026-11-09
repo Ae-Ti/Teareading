@@ -115,7 +115,7 @@ async function Dashboard() {
             <StateMessage
               title="아직 쓴 기록이 없어요"
               description="타이머를 마친 뒤 오늘 읽은 내용을 남겨 보세요."
-              action={{ href: "/me/reading/new", label: "첫 기록 쓰기" }}
+              action={{ href: "/me/reading", label: "첫 기록 쓰기" }}
             />
           ) : (
             records.map((r) => (

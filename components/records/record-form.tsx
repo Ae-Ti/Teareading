@@ -20,10 +20,13 @@ export function RecordForm({
   kind,
   id = null,
   initial = { title: "", body: "", pages: "", teaType: "" },
+  book,
 }: {
   kind: RecordKind;
   id?: string | null;
   initial?: { title: string; body: string; pages?: string; teaType?: string };
+  // 독서록은 서재의 책에 달린다
+  book?: { id: string; title: string; author?: string | null };
 }) {
   const config = RECORD_KINDS[kind];
   const action = useMemo(
@@ -52,20 +55,36 @@ export function RecordForm({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty, pending]);
 
-  const cancelHref = id ? `${config.path}/${id}` : config.path;
+  const cancelHref = id
+    ? `${config.path}/${id}`
+    : book
+      ? `/me/books/${book.id}`
+      : config.path;
 
   return (
     <form action={formAction} className="flex flex-col gap-5" noValidate>
-      <Input
-        label={config.titleLabel}
-        name="title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder={config.titlePlaceholder}
-        maxLength={TITLE_MAX}
-        required
-        error={state.errors?.title}
-      />
+      {book ? (
+        <div className="rounded-md border-2 border-ink bg-sunken px-4 py-3">
+          <input type="hidden" name="title" value={book.title} />
+          <input type="hidden" name="bookId" value={book.id} />
+          <p className="text-xs font-bold text-ink-muted">책</p>
+          <p className="font-bold break-words">{book.title}</p>
+          {book.author && (
+            <p className="text-sm text-ink-muted">{book.author}</p>
+          )}
+        </div>
+      ) : (
+        <Input
+          label={config.titleLabel}
+          name="title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder={config.titlePlaceholder}
+          maxLength={TITLE_MAX}
+          required
+          error={state.errors?.title}
+        />
+      )}
       {kind === "reading" && (
         <Input
           label="읽은 페이지 수 (선택)"

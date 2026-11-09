@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Genre } from "@/lib/books";
 import type { TeaType } from "@/lib/records";
 import type { Database } from "@/types/database";
 
@@ -7,6 +8,9 @@ export type MonthValue = { month: string; value: number };
 export type RecordStats = {
   reading: {
     books: number;
+    finished: number;
+    reading_now: number;
+    by_genre: { genre: Genre; count: number }[];
     logs: number;
     pages: number;
     pages_this_month: number;
