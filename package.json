@@ -30,6 +30,8 @@
     "test:board:db": "node --import tsx --test tests/board.db.test.ts",
     "test:board:e2e": "playwright test --config tests/auth.playwright.config.ts board.spec.ts",
     "test:community:e2e": "playwright test --config tests/auth.playwright.config.ts community.spec.ts",
+    "test:chat-prefs:db": "node --import tsx --test tests/chat-prefs.db.test.ts",
+    "test:chat-list:e2e": "playwright test --config tests/auth.playwright.config.ts chat-list.spec.ts",
     "test:rls": "node --import tsx --test tests/rls.db.test.ts",
     "test:space": "node --import tsx --test tests/space.test.ts"
   },

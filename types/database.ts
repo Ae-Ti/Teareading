@@ -68,6 +68,45 @@ export type Database = {
           },
         ];
       };
+      chat_room_prefs: {
+        Row: {
+          kind: string;
+          last_read_at: string | null;
+          left_at: string | null;
+          muted: boolean;
+          pinned_at: string | null;
+          room_id: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          kind: string;
+          last_read_at?: string | null;
+          left_at?: string | null;
+          muted?: boolean;
+          pinned_at?: string | null;
+          room_id: string;
+          user_id?: string;
+        };
+        Update: {
+          kind?: string;
+          last_read_at?: string | null;
+          left_at?: string | null;
+          muted?: boolean;
+          pinned_at?: string | null;
+          room_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chat_room_prefs_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       dm_messages: {
         Row: {
           body: string;
@@ -800,6 +839,10 @@ export type Database = {
       };
     };
     Functions: {
+      can_access_chat: {
+        Args: { p_kind: string; p_room_id: string };
+        Returns: boolean;
+      };
       delete_group_message: {
         Args: { p_message_id: string };
         Returns: {
@@ -854,9 +897,25 @@ export type Database = {
       is_group_muted: { Args: { p_group_id: string }; Returns: boolean };
       is_group_owner: { Args: { p_group_id: string }; Returns: boolean };
       is_nickname_available: { Args: { p_nickname: string }; Returns: boolean };
+      leave_dm: { Args: { p_thread_id: string }; Returns: undefined };
+      mark_chat_read: {
+        Args: { p_kind: string; p_room_id: string };
+        Returns: undefined;
+      };
       my_avatar_file_count: {
         Args: Record<PropertyKey, never>;
         Returns: number;
+      };
+      my_chat_states: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          hidden: boolean;
+          kind: string;
+          muted: boolean;
+          pinned_at: string;
+          room_id: string;
+          unread: number;
+        }[];
       };
       my_dm_threads: {
         Args: Record<PropertyKey, never>;
@@ -886,7 +945,17 @@ export type Database = {
         }[];
       };
       my_group_role: { Args: { p_group_id: string }; Returns: string };
+      my_unread_total: { Args: Record<PropertyKey, never>; Returns: number };
       record_post_view: { Args: { p_post_id: string }; Returns: boolean };
+      set_chat_pref: {
+        Args: {
+          p_kind: string;
+          p_muted?: boolean;
+          p_pinned?: boolean;
+          p_room_id: string;
+        };
+        Returns: undefined;
+      };
       set_group_manager: {
         Args: { p_group_id: string; p_manager: boolean; p_user_id: string };
         Returns: undefined;

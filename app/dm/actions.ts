@@ -73,3 +73,51 @@ export async function unblockUser(otherId: string) {
   refresh(otherId);
   return { error: null };
 }
+
+type ChatKind = "group" | "dm";
+const isChatKind = (v: unknown): v is ChatKind => v === "group" || v === "dm";
+
+// 메시지 목록의 ⋮ 메뉴: 상단 고정·알람 끄기
+export async function setChatPref(
+  kind: ChatKind,
+  roomId: string,
+  change: { pinned?: boolean; muted?: boolean },
+) {
+  const { supabase } = await requireUser("/dm");
+  if (!isChatKind(kind) || !isUuid(roomId))
+    return { error: "채팅방을 찾을 수 없어요." };
+  const { error } = await supabase.rpc("set_chat_pref", {
+    p_kind: kind,
+    p_room_id: roomId,
+    p_pinned: change.pinned,
+    p_muted: change.muted,
+  });
+  if (error) return { error: "설정을 바꾸지 못했어요. 다시 시도해 주세요." };
+  revalidatePath("/dm");
+  return { error: null };
+}
+
+// 채팅방 나가기. 단체 채팅은 모임 탈퇴, 1:1은 내 목록에서만 지운다.
+export async function leaveChat(kind: ChatKind, roomId: string) {
+  const { supabase, userId } = await requireUser("/dm");
+  if (!isChatKind(kind) || !isUuid(roomId))
+    return { error: "채팅방을 찾을 수 없어요." };
+
+  if (kind === "dm") {
+    const { error } = await supabase.rpc("leave_dm", { p_thread_id: roomId });
+    if (error) return { error: "나가지 못했어요. 다시 시도해 주세요." };
+  } else {
+    const { data, error } = await supabase
+      .from("group_members")
+      .delete()
+      .eq("group_id", roomId)
+      .eq("user_id", userId)
+      .select("user_id");
+    if (error) return { error: "나가지 못했어요. 다시 시도해 주세요." };
+    if (!data?.length) return { error: "모임장은 채팅방을 나갈 수 없어요." };
+    revalidatePath(`/groups/${roomId}`);
+    revalidatePath("/community");
+  }
+  revalidatePath("/dm");
+  return { error: null };
+}

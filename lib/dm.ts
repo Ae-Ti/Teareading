@@ -121,11 +121,20 @@ export type GroupChatSummary = {
   lastSender: string | null;
   lastMine: boolean;
   lastAt: string;
+  isOwner: boolean;
 };
 
 export async function listGroupChats(supabase: Client, me: string) {
-  const { data, error } = await supabase.rpc("my_group_chats");
-  if (error) return { chats: null, error };
+  const [{ data, error }, owned] = await Promise.all([
+    supabase.rpc("my_group_chats"),
+    supabase
+      .from("group_members")
+      .select("group_id")
+      .eq("user_id", me)
+      .eq("role", "owner"),
+  ]);
+  if (error || owned.error) return { chats: null, error: error ?? owned.error };
+  const ownedIds = new Set((owned.data ?? []).map((g) => g.group_id));
   return {
     error: null,
     chats: data.map((g): GroupChatSummary => ({
@@ -137,6 +146,36 @@ export async function listGroupChats(supabase: Client, me: string) {
       lastSender: g.last_sender_nickname,
       lastMine: g.last_sender_id === me,
       lastAt: g.last_at ?? g.joined_at,
+      isOwner: ownedIds.has(g.group_id),
     })),
+  };
+}
+
+// 채팅방별 내 설정과 안 읽은 개수
+export type ChatState = {
+  pinnedAt: string | null;
+  muted: boolean;
+  unread: number;
+  hidden: boolean;
+};
+
+export const chatKey = (kind: string, roomId: string) => `${kind}:${roomId}`;
+
+export async function listChatStates(supabase: Client) {
+  const { data, error } = await supabase.rpc("my_chat_states");
+  if (error) return { states: null, error };
+  return {
+    error: null,
+    states: new Map(
+      data.map((s): [string, ChatState] => [
+        chatKey(s.kind, s.room_id),
+        {
+          pinnedAt: s.pinned_at,
+          muted: s.muted,
+          unread: s.unread,
+          hidden: s.hidden,
+        },
+      ]),
+    ),
   };
 }
