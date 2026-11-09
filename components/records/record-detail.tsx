@@ -4,7 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/link-button";
 import { LoadingBlock, StateMessage } from "@/components/ui/state";
-import { getRecord, RECORD_KINDS, type RecordKind } from "@/lib/records";
+import {
+  getRecord,
+  RECORD_KINDS,
+  TEA_TYPES,
+  type RecordKind,
+} from "@/lib/records";
 import { requireUser } from "@/lib/supabase/user";
 import { formatKoreanDateTime } from "@/lib/time";
 import { DeleteRecordButton } from "./delete-record-button";
@@ -65,9 +70,13 @@ async function RecordDetail({
   return (
     <article className="flex flex-col gap-6">
       <header className="flex flex-col gap-3">
-        <Badge tone={config.tone} className="self-start">
-          {config.label}
-        </Badge>
+        <div className="flex flex-wrap gap-2">
+          <Badge tone={config.tone}>{config.label}</Badge>
+          {row.tea_type && <Badge>{TEA_TYPES[row.tea_type]}</Badge>}
+          {row.pages_read && (
+            <Badge>{row.pages_read.toLocaleString()}쪽 읽음</Badge>
+          )}
+        </div>
         <h1 className="text-2xl font-bold break-words md:text-4xl">
           {row.title}
         </h1>

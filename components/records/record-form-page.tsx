@@ -87,7 +87,12 @@ async function EditForm({
     <RecordForm
       kind={kind}
       id={row.id}
-      initial={{ title: row.title, body: row.body }}
+      initial={{
+        title: row.title,
+        body: row.body,
+        pages: row.pages_read?.toString() ?? "",
+        teaType: row.tea_type ?? "",
+      }}
     />
   );
 }

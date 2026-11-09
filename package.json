@@ -32,6 +32,8 @@
     "test:community:e2e": "playwright test --config tests/auth.playwright.config.ts community.spec.ts",
     "test:chat-prefs:db": "node --import tsx --test tests/chat-prefs.db.test.ts",
     "test:chat-list:e2e": "playwright test --config tests/auth.playwright.config.ts chat-list.spec.ts",
+    "test:record-stats:db": "node --import tsx --test tests/record-stats.db.test.ts",
+    "test:record-stats:e2e": "playwright test --config tests/auth.playwright.config.ts record-stats.spec.ts",
     "test:rls": "node --import tsx --test tests/rls.db.test.ts",
     "test:space": "node --import tsx --test tests/space.test.ts"
   },

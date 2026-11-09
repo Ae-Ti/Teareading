@@ -55,8 +55,24 @@ export type RecordRow = {
   body: string;
   created_at: string;
   updated_at: string;
+  pages_read?: number | null;
+  tea_type?: TeaType | null;
 };
 
+// 차 칼럼의 차 종류. DB 체크 제약과 같아야 한다 (20261109001000_record_stats.sql)
+export const TEA_TYPES = {
+  green: "녹차",
+  white: "백차",
+  oolong: "우롱차",
+  black: "홍차",
+  puer: "보이차",
+  other: "기타",
+} as const;
+export type TeaType = keyof typeof TEA_TYPES;
+export const isTeaType = (v: unknown): v is TeaType =>
+  typeof v === "string" && v in TEA_TYPES;
+
+export const PAGES_MAX = 20000;
 export const TITLE_MAX = 200;
 export const BODY_MAX = 20000;
 
@@ -64,7 +80,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid = (v: string) => UUID.test(v);
 
 function columns(kind: RecordKind) {
-  return `id, title:${RECORD_KINDS[kind].titleColumn}, body, created_at, updated_at`;
+  const extra = kind === "reading" ? "pages_read" : "tea_type";
+  return `id, title:${RECORD_KINDS[kind].titleColumn}, body, created_at, updated_at, ${extra}`;
 }
 
 export async function listRecords(
