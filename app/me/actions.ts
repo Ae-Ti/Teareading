@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   BODY_MAX,
+  isTeaType,
   isUuid,
+  PAGES_MAX,
   RECORD_KINDS,
   TITLE_MAX,
   type RecordKind,
@@ -13,8 +15,14 @@ import { requireUser } from "@/lib/supabase/user";
 import { track, type Device } from "@/lib/track";
 
 export type RecordFormState = {
-  errors?: { title?: string; body?: string; form?: string };
-  values?: { title: string; body: string };
+  errors?: {
+    title?: string;
+    body?: string;
+    pages?: string;
+    teaType?: string;
+    form?: string;
+  };
+  values?: { title: string; body: string; pages?: string; teaType?: string };
 };
 
 export async function saveRecord(
@@ -33,7 +41,10 @@ export async function saveRecord(
 
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
-  const values = { title, body };
+  // 독서기록은 페이지 수, 차 칼럼은 차 종류 (둘 다 선택 입력, 통계에 쓴다)
+  const pages = String(formData.get("pages") ?? "").trim();
+  const teaType = String(formData.get("teaType") ?? "");
+  const values = { title, body, pages, teaType };
 
   const errors: RecordFormState["errors"] = {};
   if (!title) errors.title = `${config.titleLabel}을 입력해 주세요.`;
@@ -42,9 +53,22 @@ export async function saveRecord(
   if (!body) errors.body = `${config.bodyLabel}을 입력해 주세요.`;
   else if (body.length > BODY_MAX)
     errors.body = `${BODY_MAX.toLocaleString()}자 이내로 입력해 주세요.`;
-  if (errors.title || errors.body) return { errors, values };
+  if (
+    kind === "reading" &&
+    pages &&
+    (!/^\d+$/.test(pages) || Number(pages) < 1 || Number(pages) > PAGES_MAX)
+  )
+    errors.pages = `1~${PAGES_MAX.toLocaleString()} 사이의 숫자로 입력해 주세요.`;
+  if (kind === "columns" && teaType && !isTeaType(teaType))
+    errors.teaType = "차 종류를 다시 골라 주세요.";
+  if (errors.title || errors.body || errors.pages || errors.teaType)
+    return { errors, values };
 
-  const payload = { [config.titleColumn]: title, body } as never;
+  const extra =
+    kind === "reading"
+      ? { pages_read: pages ? Number(pages) : null }
+      : { tea_type: teaType || null };
+  const payload = { [config.titleColumn]: title, body, ...extra } as never;
   let savedId = id;
 
   if (id) {

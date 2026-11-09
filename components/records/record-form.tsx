@@ -8,7 +8,9 @@ import { LinkButton } from "@/components/ui/link-button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   BODY_MAX,
+  PAGES_MAX,
   RECORD_KINDS,
+  TEA_TYPES,
   TITLE_MAX,
   type RecordKind,
 } from "@/lib/records";
@@ -17,11 +19,11 @@ import { detectDevice } from "@/lib/track";
 export function RecordForm({
   kind,
   id = null,
-  initial = { title: "", body: "" },
+  initial = { title: "", body: "", pages: "", teaType: "" },
 }: {
   kind: RecordKind;
   id?: string | null;
-  initial?: { title: string; body: string };
+  initial?: { title: string; body: string; pages?: string; teaType?: string };
 }) {
   const config = RECORD_KINDS[kind];
   const action = useMemo(
@@ -34,7 +36,13 @@ export function RecordForm({
   >(action, {});
   const [title, setTitle] = useState(initial.title);
   const [body, setBody] = useState(initial.body);
-  const dirty = title !== initial.title || body !== initial.body;
+  const [pages, setPages] = useState(initial.pages ?? "");
+  const [teaType, setTeaType] = useState(initial.teaType ?? "");
+  const dirty =
+    title !== initial.title ||
+    body !== initial.body ||
+    pages !== (initial.pages ?? "") ||
+    teaType !== (initial.teaType ?? "");
 
   // 저장하지 않은 내용이 있으면 페이지를 떠나기 전에 경고
   useEffect(() => {
@@ -58,6 +66,52 @@ export function RecordForm({
         required
         error={state.errors?.title}
       />
+      {kind === "reading" && (
+        <Input
+          label="읽은 페이지 수 (선택)"
+          name="pages"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={PAGES_MAX}
+          value={pages}
+          onChange={(e) => setPages(e.target.value)}
+          placeholder="예: 45"
+          hint="이번에 읽은 쪽수를 적으면 통계에 쌓여요."
+          error={state.errors?.pages}
+        />
+      )}
+      {kind === "columns" && (
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className="mb-1.5 text-sm font-bold">차 종류 (선택)</legend>
+          <div className="flex flex-wrap gap-2">
+            {[["", "선택 안 함"], ...Object.entries(TEA_TYPES)].map(
+              ([value, label]) => (
+                <label
+                  key={value}
+                  className="cursor-pointer rounded-md border-2 border-ink px-3 py-1.5 text-sm font-bold has-checked:bg-matcha has-focus-visible:outline-3 has-focus-visible:outline-yuja"
+                >
+                  <input
+                    type="radio"
+                    name="teaType"
+                    value={value}
+                    checked={teaType === value}
+                    onChange={() => setTeaType(value)}
+                    className="sr-only"
+                  />
+                  {label}
+                </label>
+              ),
+            )}
+          </div>
+          <p className="text-sm text-ink-muted">
+            고르면 어떤 차를 몇 번 마셨는지 통계에 쌓여요.
+          </p>
+          {state.errors?.teaType && (
+            <p className="text-sm text-danger">{state.errors.teaType}</p>
+          )}
+        </fieldset>
+      )}
       <Textarea
         label={config.bodyLabel}
         name="body"

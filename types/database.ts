@@ -625,6 +625,7 @@ export type Database = {
           book_title: string;
           created_at: string;
           id: string;
+          pages_read: number | null;
           updated_at: string;
           user_id: string;
         };
@@ -634,6 +635,7 @@ export type Database = {
           book_title: string;
           created_at?: string;
           id?: string;
+          pages_read?: number | null;
           updated_at?: string;
           user_id?: string;
         };
@@ -642,6 +644,7 @@ export type Database = {
           book_title?: string;
           created_at?: string;
           id?: string;
+          pages_read?: number | null;
           updated_at?: string;
           user_id?: string;
         };
@@ -747,6 +750,7 @@ export type Database = {
           body: string;
           created_at: string;
           id: string;
+          tea_type: string | null;
           title: string;
           updated_at: string;
           user_id: string;
@@ -756,6 +760,7 @@ export type Database = {
           body: string;
           created_at?: string;
           id?: string;
+          tea_type?: string | null;
           title: string;
           updated_at?: string;
           user_id?: string;
@@ -764,6 +769,7 @@ export type Database = {
           body?: string;
           created_at?: string;
           id?: string;
+          tea_type?: string | null;
           title?: string;
           updated_at?: string;
           user_id?: string;
@@ -945,6 +951,7 @@ export type Database = {
         }[];
       };
       my_group_role: { Args: { p_group_id: string }; Returns: string };
+      my_record_stats: { Args: Record<PropertyKey, never>; Returns: Json };
       my_unread_total: { Args: Record<PropertyKey, never>; Returns: number };
       record_post_view: { Args: { p_post_id: string }; Returns: boolean };
       set_chat_pref: {
