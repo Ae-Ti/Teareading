@@ -34,6 +34,7 @@ import {
   type ChatRoomRef,
   type Cursor,
 } from "@/lib/chat/rooms";
+import { requestUnreadRefresh } from "@/lib/chat/unread-store";
 import { createClient } from "@/lib/supabase/client";
 import { formatKoreanTime } from "@/lib/time";
 import { track } from "@/lib/track";
@@ -127,6 +128,20 @@ export function ChatRoom({
     [addProfiles],
   );
 
+  // 보고 있는 채팅방은 읽음으로 표시한다 (탭이 가려져 있으면 다시 볼 때). 메시지 탭의 빨간 개수에 반영된다.
+  const markRead = useCallback(() => {
+    if (document.visibilityState !== "visible") return;
+    void createClient()
+      .rpc("mark_chat_read", { p_kind: room.kind, p_room_id: room.id })
+      .then(() => requestUnreadRefresh(0));
+  }, [room.kind, room.id]);
+
+  useEffect(() => {
+    markRead();
+    document.addEventListener("visibilitychange", markRead);
+    return () => document.removeEventListener("visibilitychange", markRead);
+  }, [markRead]);
+
   // 실시간 수신. 화면을 떠나거나 방이 바뀌면 구독을 해제한다.
   useEffect(() => {
     const supabase = createClient();
@@ -178,6 +193,7 @@ export function ChatRoom({
           if (!stickRef.current && m.sender_id !== me) setUnseen((n) => n + 1);
           setItems((s) => mergeMessages(s, [m]));
           void ensureProfile(m.sender_id);
+          if (m.sender_id !== me) markRead();
         },
       );
     // 단체 채팅: 모임장·부모임장이 지운 메시지가 모두의 화면에서 바로 바뀐다
@@ -197,8 +213,8 @@ export function ChatRoom({
       if (disposed) return;
       if (status === "SUBSCRIBED") {
         setConn("live");
-        void catchUp();
-        timers.push(setTimeout(() => void catchUp(), 3000));
+        void catchUp().then(markRead);
+        timers.push(setTimeout(() => void catchUp().then(markRead), 3000));
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         setConn("lost");
       }
@@ -211,7 +227,7 @@ export function ChatRoom({
     };
     // room은 kind·id로만 비교한다
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room.kind, room.id, me, ensureProfile, addProfiles]);
+  }, [room.kind, room.id, me, ensureProfile, addProfiles, markRead]);
 
   const loadOlder = useCallback(async () => {
     if (older === "loading" || !hasMore) return;

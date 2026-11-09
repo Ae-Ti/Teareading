@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/components/ui/cn";
+import { UnreadBadge } from "./unread-badge";
 
 type Item = {
   href: string;
@@ -10,6 +11,8 @@ type Item = {
   icon?: React.ReactNode;
   // 이 경로들 아래에 있으면 활성 표시
   match?: string[];
+  // 안 읽은 메시지 개수를 표시
+  unread?: boolean;
 };
 
 const stroke = {
@@ -87,6 +90,7 @@ const TABS: Item[] = [
   {
     href: "/dm",
     label: "메시지",
+    unread: true,
     icon: (
       <Icon>
         <path d="M4 5h16v11H10l-6 4z" />
@@ -121,13 +125,16 @@ function DesktopLinks({ pathname }: { pathname: string | null }) {
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "rounded-md border-2 px-2.5 py-1 whitespace-nowrap transition",
+              "relative rounded-md border-2 px-2.5 py-1 whitespace-nowrap transition",
               active
                 ? "border-ink bg-matcha font-bold"
                 : "border-transparent hover:bg-sunken",
             )}
           >
             {item.label}
+            {item.unread && (
+              <UnreadBadge pathname={pathname} className="-top-2.5 -right-2" />
+            )}
           </Link>
         );
       })}
@@ -174,12 +181,18 @@ function Tabs({ pathname }: { pathname: string | null }) {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "m-0.5 flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-md text-[11px] whitespace-nowrap",
+                  "relative m-0.5 flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-md text-[11px] whitespace-nowrap",
                   active ? "bg-matcha font-bold" : "text-ink-muted",
                 )}
               >
                 {item.icon}
                 {item.label}
+                {item.unread && (
+                  <UnreadBadge
+                    pathname={pathname}
+                    className="top-0.5 right-[calc(50%-1.5rem)]"
+                  />
+                )}
               </Link>
             </li>
           );

@@ -308,3 +308,13 @@ body {
     opacity: 1;
   }
 }
+
+/* 메시지 목록의 ⋮ 메뉴: 마우스가 있는 기기에서는 줄에 올렸을 때(또는 메뉴가 열렸을 때)만 보인다 */
+@media (hover: hover) {
+  .chat-row-menu:not([data-open]):not(:focus-within) {
+    opacity: 0;
+  }
+  .group\/chat:hover .chat-row-menu {
+    opacity: 1;
+  }
+}
