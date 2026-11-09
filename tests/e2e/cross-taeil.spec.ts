@@ -71,7 +71,7 @@ test("타이머: 새로고침·다른 탭 유지, 두 번 시작 차단, 1분 �
 
   // 1분 안에 누른 완료는 중단으로 기록된다(0초 출석 방지, 태일 정책). 연타해도 결과는 하나
   await page.getByRole("button", { name: "완료" }).dblclick();
-  await expect(page.getByText("잠시 멈췄어요")).toHaveCount(1);
+  await expect(page.getByText("이번엔 여기까지")).toHaveCount(1);
   // 중단만 있는 날은 미출석
   await page.goto("/attendance");
   await expect(page.getByText("아직 출석 전")).toBeVisible();

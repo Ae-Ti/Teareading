@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   finishTimer,
+  pauseTimer,
+  resumeTimer,
   startTimer,
   type TimerSession,
 } from "@/app/dashboard/actions";
@@ -28,10 +30,13 @@ function format(totalSeconds: number) {
 }
 
 function durationText(session: TimerSession) {
-  const sec = Math.round(
-    (new Date(session.ended_at!).getTime() -
-      new Date(session.started_at).getTime()) /
-      1000,
+  const sec = Math.max(
+    0,
+    Math.round(
+      (new Date(session.ended_at!).getTime() -
+        new Date(session.started_at).getTime()) /
+        1000,
+    ) - session.paused_seconds,
   );
   const m = Math.floor(sec / 60);
   return m > 0 ? `${m}분` : `${sec}초`;
@@ -58,6 +63,7 @@ export function TimerPanel({
   const [skew] = useState(() => serverNow - Date.now());
   const [now, setNow] = useState(() => Date.now() + skew);
   const finishing = useRef(false);
+  const lastAutoFinish = useRef(0);
 
   // 서버에서 새 상태가 오면(새로고침, 다른 기기에서 시작·종료) 그 상태를 따른다
   const [prevInitial, setPrevInitial] = useState(initialSession);
@@ -67,18 +73,25 @@ export function TimerPanel({
   }
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || session.paused_at) return;
     const t = setInterval(() => setNow(Date.now() + skew), 250);
     return () => clearInterval(t);
   }, [session, skew]);
 
+  const paused = Boolean(session?.paused_at);
+  // 멈춘 동안은 멈춘 시각에 고정한다. 지난 멈춤 시간은 paused_seconds로 뺀다.
   const remaining = session
-    ? session.target_seconds -
-      Math.floor((now - new Date(session.started_at).getTime()) / 1000)
+    ? session.target_seconds +
+      session.paused_seconds -
+      Math.floor(
+        ((session.paused_at ? new Date(session.paused_at).getTime() : now) -
+          new Date(session.started_at).getTime()) /
+          1000,
+      )
     : minutes * 60;
 
   const finish = useCallback(
-    (status: "completed" | "stopped") => {
+    (status: "completed" | "stopped" | "expired") => {
       if (!session || finishing.current) return;
       finishing.current = true;
       setError(null);
@@ -89,6 +102,12 @@ export function TimerPanel({
           setError(res.error);
           return;
         }
+        // 서버 기준으로 아직 끝나지 않았다면 (다른 탭에서 멈춤 등) 그 상태로 맞춘다
+        if (res.session.status === "running") {
+          setNow(Date.now() + skew);
+          setSession(res.session);
+          return;
+        }
         setSession(null);
         setResult(res.session);
         setFinishedTooEarly(
@@ -97,23 +116,52 @@ export function TimerPanel({
         router.refresh();
       });
     },
-    [router, session],
+    [router, session, skew],
   );
 
-  // 목표 시간에 닿으면 자동 완료 (자리를 비운 사이 끝났어도 돌아오면 완료 처리)
+  // 목표 시간에 닿으면 자동 완료 (자리를 비운 사이 끝났어도 돌아오면 완료 처리).
+  // 서버가 아직 안 끝났다고 답할 수 있어 3초 간격으로만 다시 요청한다.
   useEffect(() => {
-    if (session && remaining <= 0) finish("completed");
+    if (!session || session.paused_at || remaining > 0) return;
+    if (Date.now() - lastAutoFinish.current < 3000) return;
+    lastAutoFinish.current = Date.now();
+    finish("expired");
   }, [session, remaining, finish]);
+
+  const togglePause = () => {
+    if (!session || finishing.current) return;
+    finishing.current = true;
+    setError(null);
+    const action = session.paused_at ? resumeTimer : pauseTimer;
+    startTransition(async () => {
+      const res = await action(session.id);
+      finishing.current = false;
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setNow(Date.now() + skew);
+      if (res.session.status === "running") {
+        setSession(res.session);
+      } else {
+        // 다른 탭에서 이미 끝낸 타이머
+        setSession(null);
+        setResult(res.session);
+        setFinishedTooEarly(false);
+      }
+      router.refresh();
+    });
+  };
 
   // 탭 제목에 남은 시간 표시
   useEffect(() => {
     if (!session) return;
     const original = document.title;
-    document.title = `${format(remaining)} · ${LABEL[session.activity as "tea"]} · 티어리딩`;
+    document.title = `${paused ? "멈춤 " : ""}${format(remaining)} · ${LABEL[session.activity as "tea"]} · 티어리딩`;
     return () => {
       document.title = original;
     };
-  }, [session, remaining]);
+  }, [session, remaining, paused]);
 
   const start = () => {
     setError(null);
@@ -239,7 +287,7 @@ export function TimerPanel({
               ? completed
                 ? "완료"
                 : "중단"
-              : `진행 중 · ${currentLabel}`}
+              : `${paused ? "일시정지" : "진행 중"} · ${currentLabel}`}
           </Badge>
           <span className="text-sm font-bold">
             목표{" "}
@@ -257,7 +305,7 @@ export function TimerPanel({
           aria-live="polite"
         >
           <p className="text-4xl font-bold md:text-5xl">
-            {completed ? "수고했어요" : "잠시 멈췄어요"}
+            {completed ? "수고했어요" : "이번엔 여기까지"}
           </p>
           <p className="text-ink-muted">
             {completed
@@ -271,9 +319,12 @@ export function TimerPanel({
         </div>
       ) : (
         <p
-          className="text-center font-mono text-7xl font-extrabold tracking-tighter tabular-nums sm:text-8xl md:text-9xl"
+          className={cn(
+            "text-center font-mono text-7xl font-extrabold tracking-tighter tabular-nums sm:text-8xl md:text-9xl",
+            paused && "opacity-50",
+          )}
           role="timer"
-          aria-label={`남은 시간 ${format(remaining)}`}
+          aria-label={`${paused ? "일시정지, " : ""}남은 시간 ${format(remaining)}`}
         >
           {format(remaining)}
         </p>
@@ -311,6 +362,14 @@ export function TimerPanel({
         )}
         {phase === "running" && (
           <>
+            <Button
+              size="lg"
+              variant={paused ? "primary" : "secondary"}
+              onClick={togglePause}
+              disabled={pending}
+            >
+              {paused ? "이어서 하기" : "일시정지"}
+            </Button>
             <Button
               size="lg"
               variant="secondary"

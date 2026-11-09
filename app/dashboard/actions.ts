@@ -63,7 +63,7 @@ export async function startTimer(
 
 export async function finishTimer(
   id: string,
-  status: "completed" | "stopped",
+  status: "completed" | "stopped" | "expired",
   device: Device | null,
 ): Promise<TimerResult> {
   const { supabase } = await requireUser("/dashboard");
@@ -78,11 +78,15 @@ export async function finishTimer(
       error: "타이머를 종료하지 못했어요. 다시 시도해 주세요.",
     };
   }
+  // 자동 완료 요청인데 서버 기준으로 아직 끝나지 않은 경우 (다른 탭에서 멈춤 등)
+  if (data.status === "running") return { ok: true, session: data };
 
-  const seconds = Math.round(
-    (new Date(data.ended_at!).getTime() - new Date(data.started_at).getTime()) /
-      1000,
-  );
+  const seconds =
+    Math.round(
+      (new Date(data.ended_at!).getTime() -
+        new Date(data.started_at).getTime()) /
+        1000,
+    ) - data.paused_seconds;
   await track(
     supabase,
     data.status === "completed" ? "timer_completed" : "timer_stopped",
@@ -93,5 +97,29 @@ export async function finishTimer(
     },
     device,
   );
+  return { ok: true, session: data };
+}
+
+export async function pauseTimer(id: string): Promise<TimerResult> {
+  const { supabase } = await requireUser("/dashboard");
+  const { data, error } = await supabase.rpc("pause_timer", { p_id: id });
+  if (error) {
+    return {
+      ok: false,
+      error: "타이머를 멈추지 못했어요. 다시 시도해 주세요.",
+    };
+  }
+  return { ok: true, session: data };
+}
+
+export async function resumeTimer(id: string): Promise<TimerResult> {
+  const { supabase } = await requireUser("/dashboard");
+  const { data, error } = await supabase.rpc("resume_timer", { p_id: id });
+  if (error) {
+    return {
+      ok: false,
+      error: "타이머를 이어 가지 못했어요. 다시 시도해 주세요.",
+    };
+  }
   return { ok: true, session: data };
 }

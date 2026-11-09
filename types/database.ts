@@ -841,6 +841,8 @@ export type Database = {
           activity: string;
           ended_at: string | null;
           id: string;
+          paused_at: string | null;
+          paused_seconds: number;
           started_at: string;
           status: string;
           target_seconds: number;
@@ -851,6 +853,8 @@ export type Database = {
           activity: string;
           ended_at?: string | null;
           id?: string;
+          paused_at?: string | null;
+          paused_seconds?: number;
           started_at?: string;
           status?: string;
           target_seconds: number;
@@ -860,6 +864,8 @@ export type Database = {
           activity?: string;
           ended_at?: string | null;
           id?: string;
+          paused_at?: string | null;
+          paused_seconds?: number;
           started_at?: string;
           status?: string;
           target_seconds?: number;
@@ -932,6 +938,8 @@ export type Database = {
           activity: string;
           ended_at: string | null;
           id: string;
+          paused_at: string | null;
+          paused_seconds: number;
           started_at: string;
           status: string;
           target_seconds: number;
@@ -1021,7 +1029,47 @@ export type Database = {
       my_group_role: { Args: { p_group_id: string }; Returns: string };
       my_record_stats: { Args: Record<PropertyKey, never>; Returns: Json };
       my_unread_total: { Args: Record<PropertyKey, never>; Returns: number };
+      pause_timer: {
+        Args: { p_id: string };
+        Returns: {
+          activity: string;
+          ended_at: string | null;
+          id: string;
+          paused_at: string | null;
+          paused_seconds: number;
+          started_at: string;
+          status: string;
+          target_seconds: number;
+          user_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "timer_sessions";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       record_post_view: { Args: { p_post_id: string }; Returns: boolean };
+      resume_timer: {
+        Args: { p_id: string };
+        Returns: {
+          activity: string;
+          ended_at: string | null;
+          id: string;
+          paused_at: string | null;
+          paused_seconds: number;
+          started_at: string;
+          status: string;
+          target_seconds: number;
+          user_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "timer_sessions";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       set_chat_pref: {
         Args: {
           p_kind: string;
@@ -1046,6 +1094,8 @@ export type Database = {
           activity: string;
           ended_at: string | null;
           id: string;
+          paused_at: string | null;
+          paused_seconds: number;
           started_at: string;
           status: string;
           target_seconds: number;

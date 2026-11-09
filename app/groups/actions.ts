@@ -51,37 +51,6 @@ export async function createGroup(
   redirect(`/groups/${data.id}`);
 }
 
-export async function updateGroup(
-  id: string,
-  _prev: GroupFormState,
-  formData: FormData,
-): Promise<GroupFormState> {
-  const { supabase } = await requireUser(`/groups/${id}/manage`);
-  const { values, errors } = readForm(formData);
-  if (errors) return { errors, values };
-  if (!isUuid(id))
-    return { errors: { form: "모임을 찾을 수 없어요." }, values };
-
-  const { data, error } = await supabase
-    .from("groups")
-    .update(values)
-    .eq("id", id)
-    .select("id");
-  if (error)
-    return {
-      errors: { form: "저장하지 못했어요. 다시 시도해 주세요." },
-      values,
-    };
-  if (!data?.length)
-    return {
-      errors: { form: "모임장만 모임 정보를 수정할 수 있어요." },
-      values,
-    };
-
-  revalidatePath(`/groups/${id}`);
-  redirect(`/groups/${id}`);
-}
-
 export async function joinGroup(id: string, device: Device | null) {
   const { supabase, userId } = await requireUser(`/groups/${id}`);
   if (!isUuid(id)) return { error: "모임을 찾을 수 없어요." };
@@ -115,24 +84,5 @@ export async function leaveGroup(id: string) {
   if (error) return { error: "탈퇴하지 못했어요. 다시 시도해 주세요." };
 
   revalidatePath(`/groups/${id}`);
-  return { error: null };
-}
-
-export async function removeMember(groupId: string, memberId: string) {
-  const { supabase } = await requireUser(`/groups/${groupId}/manage`);
-  if (!isUuid(groupId) || !isUuid(memberId))
-    return { error: "멤버를 찾을 수 없어요." };
-
-  const { data, error } = await supabase
-    .from("group_members")
-    .delete()
-    .eq("group_id", groupId)
-    .eq("user_id", memberId)
-    .select("user_id");
-  if (error) return { error: "내보내지 못했어요. 다시 시도해 주세요." };
-  if (!data?.length) return { error: "모임장만 멤버를 내보낼 수 있어요." };
-
-  revalidatePath(`/groups/${groupId}`);
-  revalidatePath(`/groups/${groupId}/manage`);
   return { error: null };
 }
