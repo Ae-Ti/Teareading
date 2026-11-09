@@ -113,6 +113,10 @@
 - [ ] Storage: 아바타 버킷이 생기면 `avatars/{user_id}/...` 경로만 쓰기 허용, 이미지 형식·용량 제한 (6.4)
 - [ ] Vercel 환경변수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`를 Production·Preview 둘 다
 - [ ] 무료 플랜 일시 정지 모니터링 담당 정하기
+- [ ] 프로덕션 Supabase 프로젝트를 **서울 리전(`ap-northeast-2`)**으로 만들기. 개인정보처리방침에 이 리전으로 표시된다 (`lib/legal.ts`의 `dataRegion`)
+- [ ] 실제 출시일로 맞추기: `lib/legal.ts`의 `effectiveDate`(약관·개인정보처리방침 시행일), `metrics.sql`의 측정 기간(출시일부터 2주)
+- [ ] Vercel Web Analytics 켜기 (회원가입 완료율의 `/signup` 방문 수에 필요). 개인정보처리방침이 분석 쿠키가 없다는 전제로 쓰여 있으니 켜기 전에 방침 내용을 함께 점검한다 ([기록](../woong/landing-legal-progress.md))
+- [ ] 실기기(iOS Safari, Android Chrome)에서 채팅 키보드가 입력창을 가리는지 확인 (태일)
 
 ## 9. 웅싯 기능 교차 테스트 (2026-11-08 오후)
 
