@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { LogoutButton } from "@/components/auth/logout-button";
+import { getUser } from "@/lib/supabase/user";
 import { NavDesktop, NavMobile, NavTabs } from "./app-nav";
+
+// 로그인 상태에서만 로그아웃 버튼을 보여 준다. 세션을 읽으므로 Suspense 안에서 렌더한다.
+async function NavLogout() {
+  const { userId } = await getUser();
+  return userId ? <LogoutButton variant="nav" /> : null;
+}
 
 // 전역 레이아웃: 상단 바(데스크톱은 전체 메뉴, 모바일은 로고·가이드·마이페이지) + 모바일 하단 탭 + 푸터
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -25,6 +33,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="ml-auto flex items-center gap-1 md:hidden">
             <Suspense fallback={<NavMobile fallback />}>
               <NavMobile />
+            </Suspense>
+          </div>
+          <div className="md:ml-auto">
+            <Suspense fallback={null}>
+              <NavLogout />
             </Suspense>
           </div>
         </nav>

@@ -221,6 +221,7 @@ test("공개 프로필은 참여 모임만 표시하고 이메일·개인 기록
     }
     await visitor.goto("/mypage");
     await visitor
+      .getByRole("main")
       .getByRole("button", { name: "로그아웃", exact: true })
       .click();
     await expect(visitor).toHaveURL("/login?loggedOut=1");
