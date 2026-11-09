@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { test } from "node:test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { listPosts } from "@/lib/board";
 import type { Database } from "@/types/database";
 
 if (existsSync(".env.local")) process.loadEnvFile(".env.local");
@@ -74,6 +75,9 @@ test("게시판: 작성자 권한·추천·댓글·조회수", async (t) => {
         { title: "a", body: "본문" },
         { title: "제목", body: "   " },
         { title: "제목", body: "x", category: "notice" },
+        { title: "제목", body: "\u3000\u3000" }, // 전각 공백
+        { title: "제목", body: "\u3164\u200B" }, // 한글 채움 문자·폭 없는 문자
+        { title: "\u3000\u3000\u3000", body: "본문" },
       ];
       for (const bad of bads) {
         const res = await a.c.from("posts").insert(bad);
@@ -148,6 +152,14 @@ test("게시판: 작성자 권한·추천·댓글·조회수", async (t) => {
   });
 
   await t.test("댓글: 수가 맞고, 작성자만 수정·삭제", async () => {
+    assert.ok(
+      (
+        await b.c
+          .from("post_comments")
+          .insert({ post_id: postId, body: "\u3000" })
+      ).error,
+      "보이지 않는 문자만 있는 댓글 거부",
+    );
     const c1 = await b.c
       .from("post_comments")
       .insert({ post_id: postId, body: "저도 같이 읽을래요" })
@@ -184,6 +196,28 @@ test("게시판: 작성자 권한·추천·댓글·조회수", async (t) => {
     );
     const direct = await raw(b.c).from("post_views").select("*");
     assert.ok(direct.error || direct.data?.length === 0);
+  });
+
+  await t.test("글 수를 넘는 페이지는 마지막 페이지를 보여 준다", async () => {
+    const res = await listPosts(b.c, {
+      category: null,
+      sort: "latest",
+      field: "title_body",
+      q: "",
+      page: 100000,
+    });
+    assert.equal(res.error, null);
+    assert.ok(res.total > 0);
+    assert.ok(res.posts.length > 0);
+    const none = await listPosts(b.c, {
+      category: null,
+      sort: "latest",
+      field: "title",
+      q: `없는글${suffix}`,
+      page: 5,
+    });
+    assert.equal(none.error, null);
+    assert.deepEqual([none.total, none.posts.length], [0, 0]);
   });
 
   await t.test("글을 지우면 추천·댓글·조회 기록도 함께 지워진다", async () => {

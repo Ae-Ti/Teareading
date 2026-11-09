@@ -91,7 +91,12 @@ export async function joinGroup(id: string, device: Device | null) {
     .insert({ group_id: id, user_id: userId });
   // 이미 가입한 상태(중복 요청)는 성공으로 본다
   if (error && error.code !== "23505")
-    return { error: "가입하지 못했어요. 다시 시도해 주세요." };
+    return {
+      error:
+        error.code === "42501"
+          ? "모임장이 내보낸 모임이라 다시 가입할 수 없어요."
+          : "가입하지 못했어요. 다시 시도해 주세요.",
+    };
   if (!error) await track(supabase, "group_joined", { group_id: id }, device);
 
   revalidatePath(`/groups/${id}`);

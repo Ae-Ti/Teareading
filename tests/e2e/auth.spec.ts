@@ -70,8 +70,13 @@ test("가입·로그인·세션 갱신·로그아웃과 중복 가입을 처리�
     Math.floor(Date.now() / 1000),
   );
 
-  await page.getByRole("button", { name: "로그아웃", exact: true }).click();
+  // 상단 바의 로그아웃 (로그아웃하면 버튼이 사라진다)
+  const navLogout = page
+    .getByRole("banner")
+    .getByRole("button", { name: "로그아웃", exact: true });
+  await navLogout.click();
   await expect(page).toHaveURL("/login?loggedOut=1");
+  await expect(navLogout).toHaveCount(0);
   await page.goto("/groups/123/chat?from=invite");
   await expect(page).toHaveURL(/\/login\?next=/);
   await page
@@ -96,7 +101,10 @@ test("가입·로그인·세션 갱신·로그아웃과 중복 가입을 처리�
   await page.getByRole("button", { name: "로그인", exact: true }).click();
   await expect(page).toHaveURL("/groups/123/chat?from=invite");
   await page.goto("/mypage");
-  await page.getByRole("button", { name: "로그아웃", exact: true }).click();
+  await page
+    .getByRole("main")
+    .getByRole("button", { name: "로그아웃", exact: true })
+    .click();
   await expect(page).toHaveURL("/login?loggedOut=1");
 
   await page.goto("/signup");

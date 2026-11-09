@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isUuid } from "@/lib/records";
+import { formatKoreanTime } from "@/lib/time";
 import type { Database } from "@/types/database";
 
 type Client = SupabaseClient<Database>;
@@ -100,12 +101,7 @@ export function formatThreadTime(iso: string, now = new Date()) {
   const day = (d: Date) =>
     new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(d);
   const date = new Date(iso);
-  if (day(date) === day(now))
-    return new Intl.DateTimeFormat("ko-KR", {
-      timeZone: "Asia/Seoul",
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(date);
+  if (day(date) === day(now)) return formatKoreanTime(iso);
   const sameYear = day(date).slice(0, 4) === day(now).slice(0, 4);
   return new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",

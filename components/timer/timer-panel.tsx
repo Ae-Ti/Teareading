@@ -47,6 +47,8 @@ export function TimerPanel({
   const router = useRouter();
   const [session, setSession] = useState(initialSession);
   const [result, setResult] = useState<TimerSession | null>(null);
+  // 완료를 눌렀는데 1분이 안 돼 서버가 중단으로 기록한 경우
+  const [finishedTooEarly, setFinishedTooEarly] = useState(false);
   const [activity, setActivity] = useState<"tea" | "reading">("tea");
   const [minutes, setMinutes] = useState(25);
   const [custom, setCustom] = useState(false);
@@ -89,6 +91,9 @@ export function TimerPanel({
         }
         setSession(null);
         setResult(res.session);
+        setFinishedTooEarly(
+          status === "completed" && res.session.status === "stopped",
+        );
         router.refresh();
       });
     },
@@ -257,7 +262,11 @@ export function TimerPanel({
           <p className="text-ink-muted">
             {completed
               ? `${currentLabel} ${durationText(result)}을 마쳤어요. 오늘 출석이 기록됐어요.`
-              : `${currentLabel} ${durationText(result)} 했어요. 완료한 타이머만 출석으로 쳐요.`}
+              : `${currentLabel} ${durationText(result)} 했어요. ${
+                  finishedTooEarly
+                    ? "1분이 지나야 완료로 기록돼서 이번엔 중단으로 남았어요. "
+                    : ""
+                }완료한 타이머만 출석으로 쳐요.`}
           </p>
         </div>
       ) : (

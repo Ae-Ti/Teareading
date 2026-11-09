@@ -137,11 +137,39 @@ test("모임: 멤버 hover 버튼·모임/멤버 관리 팝업·부모임장·�
     .filter({ hasText: memName })
     .getByRole("button", { name: "강제 퇴장" })
     .click();
+  // 멤버 목록에서 빠지고 "강제 퇴장한 멤버"로 옮겨 간다
   await expect(
-    owner.getByRole("dialog", { name: "멤버 관리" }).getByText(memName),
+    owner
+      .getByRole("dialog", { name: "멤버 관리" })
+      .getByRole("region", { name: "강제 퇴장한 멤버" })
+      .getByText(memName),
+  ).toBeVisible();
+  await expect(
+    owner
+      .getByRole("dialog", { name: "멤버 관리" })
+      .getByRole("listitem")
+      .filter({ hasText: memName })
+      .getByRole("button", { name: "강제 퇴장" }),
   ).toHaveCount(0);
   await mem.goto(`${groupUrl}/chat`);
   await expect(mem.getByText("모임에 가입해야 볼 수 있어요")).toBeVisible();
+
+  // 강제 퇴장한 사람은 가입 버튼 대신 안내를 본다 → 모임장이 허용하면 다시 가입할 수 있다
+  await mem.goto(groupUrl);
+  await expect(mem.getByText("다시 가입할 수 없어요")).toBeVisible();
+  await expect(mem.getByRole("button", { name: "모임 가입" })).toHaveCount(0);
+  await owner
+    .getByRole("dialog", { name: "멤버 관리" })
+    .getByRole("listitem")
+    .filter({ hasText: memName })
+    .getByRole("button", { name: "재가입 허용" })
+    .click();
+  await expect(
+    owner.getByRole("dialog", { name: "멤버 관리" }).getByText(memName),
+  ).toHaveCount(0);
+  await mem.goto(groupUrl);
+  await mem.getByRole("button", { name: "모임 가입" }).click();
+  await expect(mem.getByRole("link", { name: "단체 채팅방" })).toBeVisible();
 
   for (const p of [sub, mem]) await p.context().close();
 });

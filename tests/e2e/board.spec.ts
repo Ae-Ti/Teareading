@@ -78,6 +78,10 @@ test("게시판: 글쓰기·목록(작성자·날짜·조회·추천)·추천·�
   await expect(
     page.getByRole("listitem").filter({ hasText: title }),
   ).toBeVisible();
+  // 글 수를 넘는 페이지도 오류 화면 없이 목록을 보여 준다
+  await page.goto("/board?page=99999");
+  await expect(page.getByText("글 목록을 불러오지 못했어요")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "글쓰기" })).toBeVisible();
   await page.goto(`/board?q=없는검색어${randomUUID().slice(0, 4)}`);
   await expect(page.getByText("검색 결과가 없어요")).toBeVisible();
   await page.goto("/board?sort=likes&category=tea");

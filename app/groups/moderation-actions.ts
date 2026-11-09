@@ -102,6 +102,26 @@ export async function setMute(
   return { error: null };
 }
 
+// 강제 퇴장한 사람의 재가입 허용 (모임장만, RLS가 막는다)
+export async function allowRejoin(
+  groupId: string,
+  userId: string,
+): Promise<ActionResult> {
+  const { supabase } = await requireUser(`/groups/${groupId}`);
+  if (!isUuid(groupId) || !isUuid(userId))
+    return { error: "멤버를 찾을 수 없어요." };
+  const { data, error } = await supabase
+    .from("group_bans")
+    .delete()
+    .eq("group_id", groupId)
+    .eq("user_id", userId)
+    .select("user_id");
+  if (error) return { error: "처리하지 못했어요. 다시 시도해 주세요." };
+  if (!data?.length) return { error: "이미 재가입이 허용된 멤버예요." };
+  refresh(groupId);
+  return { error: null };
+}
+
 export async function kickMember(
   groupId: string,
   userId: string,

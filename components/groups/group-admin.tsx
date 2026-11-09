@@ -8,6 +8,7 @@ import {
   useTransition,
 } from "react";
 import {
+  allowRejoin,
   kickMember,
   saveGroupInfo,
   setManager,
@@ -103,16 +104,24 @@ type Member = {
   muted: boolean;
 };
 
+export type BannedMember = {
+  id: string;
+  nickname: string;
+  avatar_url: string | null;
+};
+
 export function MemberManageButton({
   groupId,
   myRole,
   me,
   members,
+  banned = [],
 }: {
   groupId: string;
   myRole: "owner" | "manager";
   me: string;
   members: Member[];
+  banned?: BannedMember[];
 }) {
   const [open, setOpen] = useState(false);
   const hasManager = members.some((m) => m.role === "manager");
@@ -139,8 +148,70 @@ export function MemberManageButton({
             />
           ))}
         </ul>
+        {banned.length > 0 && (
+          <section
+            aria-label="강제 퇴장한 멤버"
+            className="mt-4 border-t-2 border-ink pt-3"
+          >
+            <h3 className="font-bold">강제 퇴장한 멤버</h3>
+            <p className="mb-1 text-sm text-ink-muted">
+              재가입을 허용하기 전까지 이 모임에 다시 가입할 수 없어요.
+            </p>
+            <ul className="flex flex-col divide-y-2 divide-sunken">
+              {banned.map((m) => (
+                <BannedRow key={m.id} groupId={groupId} member={m} />
+              ))}
+            </ul>
+          </section>
+        )}
       </Modal>
     </>
+  );
+}
+
+function BannedRow({
+  groupId,
+  member,
+}: {
+  groupId: string;
+  member: BannedMember;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  return (
+    <li className="flex flex-wrap items-center gap-2 py-3">
+      <MiniAvatar
+        nickname={member.nickname}
+        src={member.avatar_url}
+        className="size-9"
+      />
+      <span className="min-w-0 flex-1 truncate font-bold">
+        {member.nickname}
+      </span>
+      <Button
+        size="sm"
+        variant="secondary"
+        loading={pending}
+        onClick={() => {
+          setError(null);
+          startTransition(async () => {
+            try {
+              const res = await allowRejoin(groupId, member.id);
+              if (res.error) setError(res.error);
+            } catch {
+              setError("처리하지 못했어요. 연결을 확인해 주세요.");
+            }
+          });
+        }}
+      >
+        재가입 허용
+      </Button>
+      {error && (
+        <p role="alert" className="w-full text-sm text-danger">
+          {error}
+        </p>
+      )}
+    </li>
   );
 }
 
@@ -255,7 +326,7 @@ function ManageRow({
               onClick={() =>
                 run(
                   () => kickMember(groupId, member.id),
-                  `${member.nickname} 님을 모임에서 내보낼까요?`,
+                  `${member.nickname} 님을 모임에서 내보낼까요? 재가입을 허용하기 전까지 다시 가입할 수 없어요.`,
                 )
               }
             >

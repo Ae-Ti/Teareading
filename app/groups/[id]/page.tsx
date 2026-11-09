@@ -67,6 +67,16 @@ async function GroupDetail({ params }: { params: Promise<{ id: string }> }) {
         .eq("group_id", group.id)
     : { data: [] };
   const muted = new Set((mutes ?? []).map((m) => m.user_id));
+  // 내보내진 본인에게는 가입 버튼 대신 안내를, 모임장에게는 재가입 허용 목록을 보여 준다
+  const { data: bans } = await supabase
+    .from("group_bans")
+    .select(
+      "user_id, profile:profiles!group_bans_user_id_fkey(id, nickname, avatar_url)",
+    )
+    .eq("group_id", group.id)
+    .order("created_at", { ascending: false });
+  const iAmBanned = (bans ?? []).some((b) => b.user_id === userId);
+  const banned = isOwner ? (bans ?? []).flatMap((b) => b.profile ?? []) : [];
   const roster = members.map((m) => ({
     id: m.profile.id,
     nickname: m.profile.nickname,
@@ -105,6 +115,10 @@ async function GroupDetail({ params }: { params: Promise<{ id: string }> }) {
             <LinkButton href={`/groups/${group.id}/chat`}>
               단체 채팅방
             </LinkButton>
+          ) : iAmBanned ? (
+            <p role="status" className="w-full text-sm text-ink-muted">
+              모임장이 내보낸 모임이라 다시 가입할 수 없어요.
+            </p>
           ) : (
             <p className="w-full text-sm text-ink-muted">
               가입하면 단체 채팅방에 들어갈 수 있어요.
@@ -123,9 +137,10 @@ async function GroupDetail({ params }: { params: Promise<{ id: string }> }) {
               myRole={myRole}
               me={userId}
               members={roster}
+              banned={banned}
             />
           )}
-          {!isOwner && (
+          {!isOwner && !iAmBanned && (
             <MembershipButton groupId={group.id} joined={isMember} />
           )}
         </div>
