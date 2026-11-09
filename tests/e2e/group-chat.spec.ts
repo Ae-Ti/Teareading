@@ -172,7 +172,17 @@ test("두 계정 실시간 대화·비회원 차단·실패 후 재시도·중�
 
     // 탈퇴하면 채팅방에 들어갈 수 없다
     await pageB.goto(`/groups/${groupId}`);
+    // 탈퇴는 한 번 더 묻는다: 아니오면 그대로
     await pageB.getByRole("button", { name: "모임 탈퇴" }).click();
+    const confirmLeave = pageB.getByRole("dialog", { name: "모임 탈퇴" });
+    await expect(confirmLeave).toContainText("정말 탈퇴하시겠습니까?");
+    await confirmLeave.getByRole("button", { name: "아니오" }).click();
+    await expect(confirmLeave).toBeHidden();
+    await expect(
+      pageB.getByRole("link", { name: "단체 채팅방" }),
+    ).toBeVisible();
+    await pageB.getByRole("button", { name: "모임 탈퇴" }).click();
+    await confirmLeave.getByRole("button", { name: "예", exact: true }).click();
     await expect(
       pageB.getByRole("button", { name: "모임 가입" }),
     ).toBeVisible();
