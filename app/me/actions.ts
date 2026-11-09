@@ -44,6 +44,7 @@ export async function saveRecord(
   // 독서기록은 페이지 수, 차 칼럼은 차 종류 (둘 다 선택 입력, 통계에 쓴다)
   const pages = String(formData.get("pages") ?? "").trim();
   const teaType = String(formData.get("teaType") ?? "");
+  const bookId = String(formData.get("bookId") ?? "");
   const values = { title, body, pages, teaType };
 
   const errors: RecordFormState["errors"] = {};
@@ -66,10 +67,16 @@ export async function saveRecord(
 
   const extra =
     kind === "reading"
-      ? { pages_read: pages ? Number(pages) : null }
+      ? {
+          pages_read: pages ? Number(pages) : null,
+          ...(bookId && isUuid(bookId) ? { book_id: bookId } : {}),
+        }
       : { tea_type: teaType || null };
   const payload = { [config.titleColumn]: title, body, ...extra } as never;
   let savedId = id;
+
+  if (kind === "reading" && !id && !isUuid(bookId))
+    return { errors: { form: "서재에서 책을 먼저 골라 주세요." }, values };
 
   if (id) {
     if (!isUuid(id))
@@ -104,7 +111,7 @@ export async function saveRecord(
     await track(supabase, config.event, {}, device);
   }
 
-  revalidatePath(config.path);
+  revalidatePath("/me", "layout");
   redirect(`${config.path}/${savedId}`);
 }
 
@@ -122,6 +129,6 @@ export async function deleteRecord(kind: RecordKind, id: string) {
   if (!data?.length)
     return { error: "기록을 찾을 수 없거나 삭제할 권한이 없어요." };
 
-  revalidatePath(config.path);
+  revalidatePath("/me", "layout");
   redirect(config.path);
 }

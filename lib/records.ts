@@ -56,6 +56,7 @@ export type RecordRow = {
   created_at: string;
   updated_at: string;
   pages_read?: number | null;
+  book_id?: string | null;
   tea_type?: TeaType | null;
 };
 
@@ -80,7 +81,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid = (v: string) => UUID.test(v);
 
 function columns(kind: RecordKind) {
-  const extra = kind === "reading" ? "pages_read" : "tea_type";
+  const extra = kind === "reading" ? "pages_read, book_id" : "tea_type";
   return `id, title:${RECORD_KINDS[kind].titleColumn}, body, created_at, updated_at, ${extra}`;
 }
 

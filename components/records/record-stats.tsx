@@ -1,30 +1,23 @@
 import { Suspense } from "react";
 import { Card } from "@/components/ui/card";
 import { LoadingBlock, StateMessage } from "@/components/ui/state";
+import { GENRES } from "@/lib/books";
 import { getRecordStats, type MonthValue } from "@/lib/record-stats";
 import { TEA_TYPES } from "@/lib/records";
 import { requireUser } from "@/lib/supabase/user";
 import { formatDuration } from "@/lib/time";
 
-// 내 기록 화면의 통계. 본인만 볼 수 있고 공개 프로필에는 나오지 않는다.
-export function RecordStatsSection() {
+// 내 기록의 통계 탭. 본인만 볼 수 있고 공개 프로필에는 나오지 않는다.
+export function RecordStatsPanel() {
   return (
-    <section
-      aria-labelledby="record-stats-heading"
-      className="flex flex-col gap-3"
-    >
-      <h2 id="record-stats-heading" className="text-lg font-bold">
-        통계
-      </h2>
-      <Suspense fallback={<LoadingBlock className="h-96" />}>
-        <RecordStats />
-      </Suspense>
-    </section>
+    <Suspense fallback={<LoadingBlock className="h-96" />}>
+      <RecordStats />
+    </Suspense>
   );
 }
 
 async function RecordStats() {
-  const { supabase } = await requireUser("/me");
+  const { supabase } = await requireUser("/me/stats");
   const { stats, error } = await getRecordStats(supabase);
   if (error || !stats)
     return (
@@ -45,8 +38,9 @@ async function RecordStats() {
     <div className="grid gap-4 lg:grid-cols-2">
       <Card className="flex flex-col gap-5" data-stats="reading">
         <h3 className="font-bold">독서</h3>
-        <dl className="grid grid-cols-3 gap-3">
-          <Stat label="읽은 책" value={reading.books} unit="권" />
+        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat label="완독" value={reading.finished} unit="권" />
+          <Stat label="읽는 중" value={reading.reading_now} unit="권" />
           <Stat label="읽은 페이지" value={reading.pages} unit="쪽" />
           <Stat label="이번 달" value={reading.pages_this_month} unit="쪽" />
         </dl>
@@ -65,6 +59,16 @@ async function RecordStats() {
             }))}
             format={(v) => `${v.toLocaleString()}쪽`}
             empty="페이지 수를 적은 책이 아직 없어요."
+          />
+        </Block>
+        <Block title="장르별 책">
+          <RankBars
+            rows={reading.by_genre.map((g) => ({
+              label: GENRES[g.genre],
+              value: g.count,
+            }))}
+            format={(v) => `${v.toLocaleString()}권`}
+            empty="서재의 책에 장르 태그를 달면 여기에 쌓여요."
           />
         </Block>
       </Card>

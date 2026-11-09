@@ -68,6 +68,48 @@ export type Database = {
           },
         ];
       };
+      books: {
+        Row: {
+          author: string | null;
+          created_at: string;
+          genres: string[];
+          id: string;
+          status: string;
+          title: string;
+          updated_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          author?: string | null;
+          created_at?: string;
+          genres?: string[];
+          id?: string;
+          status?: string;
+          title: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          author?: string | null;
+          created_at?: string;
+          genres?: string[];
+          id?: string;
+          status?: string;
+          title?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "books_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       chat_room_prefs: {
         Row: {
           kind: string;
@@ -622,6 +664,7 @@ export type Database = {
       reading_logs: {
         Row: {
           body: string;
+          book_id: string | null;
           book_title: string;
           created_at: string;
           id: string;
@@ -632,6 +675,7 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           body: string;
+          book_id?: string | null;
           book_title: string;
           created_at?: string;
           id?: string;
@@ -641,6 +685,7 @@ export type Database = {
         };
         Update: {
           body?: string;
+          book_id?: string | null;
           book_title?: string;
           created_at?: string;
           id?: string;
@@ -649,6 +694,13 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "reading_logs_book_id_fkey";
+            columns: ["book_id"];
+            isOneToOne: false;
+            referencedRelation: "books";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "reading_logs_user_id_fkey";
             columns: ["user_id"];
@@ -845,6 +897,7 @@ export type Database = {
       };
     };
     Functions: {
+      book_key: { Args: { p_title: string }; Returns: string };
       can_access_chat: {
         Args: { p_kind: string; p_room_id: string };
         Returns: boolean;
@@ -911,6 +964,21 @@ export type Database = {
       my_avatar_file_count: {
         Args: Record<PropertyKey, never>;
         Returns: number;
+      };
+      my_books: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          author: string;
+          created_at: string;
+          genres: string[];
+          id: string;
+          last_log_at: string;
+          log_count: number;
+          pages: number;
+          status: string;
+          title: string;
+          updated_at: string;
+        }[];
       };
       my_chat_states: {
         Args: Record<PropertyKey, never>;

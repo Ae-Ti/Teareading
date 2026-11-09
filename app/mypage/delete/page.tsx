@@ -41,7 +41,7 @@ async function DeleteAccount() {
         </p>
         <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-ink-muted">
           <li>계정(이메일·비밀번호), 닉네임, 한 줄 소개, 프로필 이미지</li>
-          <li>타이머·출석 기록, 독서기록, 차 칼럼</li>
+          <li>타이머·출석 기록, 서재와 독서기록, 차 칼럼</li>
           <li>내가 보낸 단체 채팅·1:1 메시지와 1:1 대화방</li>
           <li>게시판에 쓴 글·댓글과 추천</li>
           <li>모임 가입 정보, 차단 목록, 찻집 기록과 캐릭터</li>

@@ -80,6 +80,14 @@ async function RecordDetail({
         <h1 className="text-2xl font-bold break-words md:text-4xl">
           {row.title}
         </h1>
+        {row.book_id && (
+          <Link
+            href={`/me/books/${row.book_id}`}
+            className="self-start text-sm font-bold underline underline-offset-4"
+          >
+            이 책의 독서록 모두 보기
+          </Link>
+        )}
         <p className="text-sm text-ink-muted">
           {formatKoreanDateTime(row.created_at)}
           {row.updated_at !== row.created_at &&

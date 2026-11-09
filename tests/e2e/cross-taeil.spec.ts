@@ -93,13 +93,26 @@ test("독서기록: 작성·필수값·다른 계정 URL 접근 차단", async (
   browser,
 }, info) => {
   await register(page, "교차R");
-  await page.goto("/me/reading/new");
-  await page.getByRole("button", { name: "저장" }).click();
-  // 필수값 누락이면 저장되지 않는다
-  await expect(page).toHaveURL("/me/reading/new");
+  // 서재에 책을 추가하고 독서록을 쓴다
+  await page.goto("/me/reading");
+  await page.getByRole("button", { name: "도서 추가" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "도서 추가" });
+  await dialog.getByLabel("책 제목").fill("데미안");
+  await dialog.getByRole("button", { name: "도서 추가" }).click();
+  await expect(dialog).toBeHidden();
+  await page
+    .locator('li[data-book="데미안"]')
+    .getByRole("link", { name: "독서록 작성" })
+    .click();
+  await expect(page).toHaveURL(/\/me\/reading\/new\?book=/);
 
-  await page.getByLabel("책 제목").fill("데미안");
-  await page.getByLabel("기록").fill("새는 알에서 나오려고 투쟁한다.");
+  // 필수값 누락이면 저장되지 않는다
+  await page.getByRole("button", { name: "저장" }).click();
+  await expect(page).toHaveURL(/\/me\/reading\/new\?book=/);
+
+  await page
+    .getByLabel("기록", { exact: true })
+    .fill("새는 알에서 나오려고 투쟁한다.");
   await page.getByRole("button", { name: "저장" }).click();
   await expect(page).toHaveURL(/\/me\/reading\/[0-9a-f-]{36}$/);
   const url = new URL(page.url()).pathname;
