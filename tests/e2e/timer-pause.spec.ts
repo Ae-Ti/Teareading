@@ -6,7 +6,7 @@ test("일시정지: 멈춤 유지·새로고침·다른 탭·이어서 하기·�
   context,
 }) => {
   test.setTimeout(150_000);
-  await register(page, "일시정지", "/dashboard");
+  await register(page, "타이머", "/dashboard");
 
   const clock = page.getByRole("timer");
   const pauseButton = page.getByRole("button", { name: "일시정지" });
@@ -64,7 +64,7 @@ test("일시정지: 멈춤 유지·새로고침·다른 탭·이어서 하기·�
 test("일시정지: 멈춘 채로 중단하면 멈춘 시각까지만 기록된다", async ({
   page,
 }) => {
-  await register(page, "멈춤중단", "/dashboard");
+  await register(page, "타이머", "/dashboard");
   await expect(page.getByRole("button", { name: /분 시작$/ })).toBeEnabled();
   await page.getByRole("button", { name: /25분 시작$/ }).click();
   await page.getByRole("button", { name: "일시정지" }).click();

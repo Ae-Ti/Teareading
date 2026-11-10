@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { WeekAttendance } from "@/components/attendance/week-attendance";
 import { OnlineFriends } from "@/components/social/online-friends";
+import { CharacterPortrait } from "@/components/space/character-portrait";
 import { SpacePeekText } from "@/components/space/space-peek";
 import { TimerPanel } from "@/components/timer/timer-panel";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,8 @@ import { LoadingBlock, StateMessage } from "@/components/ui/state";
 import { fetchAttendance } from "@/lib/attendance";
 import { CATEGORIES, getHotPost } from "@/lib/board";
 import { recentRecords } from "@/lib/records";
+import { getFriends } from "@/lib/social/data";
+import { defaultLook, parseLook } from "@/lib/space/look";
 import { requireUser } from "@/lib/supabase/user";
 import { addDays, formatKoreanDate, kstDate, streak } from "@/lib/time";
 
@@ -43,9 +46,13 @@ async function Dashboard() {
     }).format(now),
   );
 
-  const [profile, running, attendance, records, hot, online] =
+  const [profile, running, attendance, records, hot, online, avatar, friends] =
     await Promise.all([
-      supabase.from("profiles").select("nickname").eq("id", userId).single(),
+      supabase
+        .from("profiles")
+        .select("nickname, bio")
+        .eq("id", userId)
+        .single(),
       supabase
         .from("timer_sessions")
         .select("*")
@@ -55,6 +62,12 @@ async function Dashboard() {
       recentRecords(supabase, 2),
       getHotPost(supabase),
       supabase.rpc("my_online_friends"),
+      supabase
+        .from("space_avatars")
+        .select("look")
+        .eq("user_id", userId)
+        .maybeSingle(),
+      getFriends(supabase, userId),
     ]);
 
   const days = attendance.days ?? [];
@@ -80,10 +93,36 @@ async function Dashboard() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-        <TimerPanel initialSession={running.data} serverNow={now.getTime()} />
+        <div className="flex flex-col gap-6">
+          <TimerPanel initialSession={running.data} serverNow={now.getTime()} />
+          <WeekAttendance today={today} days={days} streakCount={streakCount} />
+        </div>
 
         <div className="flex flex-col gap-6">
-          <WeekAttendance today={today} days={days} streakCount={streakCount} />
+          {/* 컴퓨터 화면에서만 캐릭터와 프로필을 보여 준다 */}
+          <Card className="hidden items-center gap-4 lg:flex">
+            <div className="flex shrink-0 items-end justify-center rounded-md border-2 border-ink bg-hojicha px-3 pt-2">
+              <CharacterPortrait
+                look={parseLook(avatar.data?.look) ?? defaultLook(userId)}
+                label="내 찻집 캐릭터"
+              />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <h2 className="truncate text-xl font-bold">
+                {profile.data?.nickname ?? "손님"}
+              </h2>
+              <p className="line-clamp-2 text-sm break-words text-ink-muted">
+                {profile.data?.bio || "아직 소개를 작성하지 않았어요."}
+              </p>
+              <p className="text-sm">
+                연속 <span className="font-mono">{streakCount}</span>일 · 친구{" "}
+                <span className="font-mono">{friends.length}</span>명
+              </p>
+              <LinkButton href="/mypage" variant="secondary" size="sm">
+                프로필 정보
+              </LinkButton>
+            </div>
+          </Card>
 
           <Card tone="hongcha" className="flex flex-col gap-3">
             <div className="flex items-center justify-between">

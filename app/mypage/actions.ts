@@ -14,6 +14,8 @@ export async function updateProfile(
 ): Promise<ProfileState> {
   const result = await saveProfile(form, createClient);
   if (result.status === "success") {
+    // 상단 메뉴의 닉네임·사진도 바뀌도록 레이아웃까지 새로 그린다
+    revalidatePath("/", "layout");
     revalidatePath("/mypage");
     revalidatePath("/mypage/edit");
     revalidatePath(`/u/${result.profile!.id}`);

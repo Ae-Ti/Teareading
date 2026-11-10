@@ -55,7 +55,7 @@ test("찻집: 앉아서 상태 메시지, 다른 화면에 갔다 와도 그대�
   await expect(myLabel(b, "데미안 읽는 중")).toBeVisible({ timeout: 15_000 });
 
   // 다른 화면에 갔다가 돌아와도 앉은 채 그대로 (다시 입장 안 눌러도 됨)
-  await a.getByRole("link", { name: "가이드", exact: true }).first().click();
+  await a.getByRole("link", { name: "다도 입문 가이드" }).first().click();
   await expect(a).toHaveURL("/guide");
   await expect(myLabel(b, "데미안 읽는 중")).toHaveCount(0, {
     timeout: 20_000,
@@ -89,7 +89,7 @@ test("찻집: 앉아서 상태 메시지, 다른 화면에 갔다 와도 그대�
   // '나가기'를 누르면 다음엔 입구에서 시작
   await leaveButton(a).click();
   await expect(a.getByRole("button", { name: "찻집 입장" })).toBeVisible();
-  await a.getByRole("link", { name: "가이드", exact: true }).first().click();
+  await a.getByRole("link", { name: "다도 입문 가이드" }).first().click();
   await expect(a).toHaveURL("/guide");
   await a.getByRole("link", { name: "찻집", exact: true }).first().click();
   await expect(a).toHaveURL("/space");

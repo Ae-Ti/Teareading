@@ -107,7 +107,9 @@ test("프로필 수정·2MB 이하 이미지·삭제·중복 제출 방지·오�
   await expect(
     page.getByRole("heading", { name: nextNickname, exact: true }),
   ).toBeVisible();
-  const avatar = page.locator('img[src*="/storage/v1/object/public/avatars/"]');
+  const avatar = page
+    .getByRole("main")
+    .locator('img[src*="/storage/v1/object/public/avatars/"]');
   await expect(avatar).toHaveCount(1);
   await expect
     .poll(() =>

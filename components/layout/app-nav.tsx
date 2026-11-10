@@ -99,11 +99,6 @@ const TABS: Item[] = [
   },
 ];
 
-const EXTRA: Item[] = [
-  { href: "/guide", label: "가이드" },
-  { href: "/mypage", label: "내 프로필", match: ["/mypage", "/u"] },
-];
-
 // 로그인 전 화면에서는 하단 탭을 숨긴다
 const NO_TABS = ["/", "/login", "/signup"];
 
@@ -117,7 +112,7 @@ function isActive(item: Item, pathname: string | null) {
 function DesktopLinks({ pathname }: { pathname: string | null }) {
   return (
     <>
-      {[...TABS, ...EXTRA].map((item) => {
+      {TABS.map((item) => {
         const active = isActive(item, pathname);
         return (
           <Link
@@ -135,29 +130,6 @@ function DesktopLinks({ pathname }: { pathname: string | null }) {
             {item.unread && (
               <UnreadBadge pathname={pathname} className="-top-2.5 -right-2" />
             )}
-          </Link>
-        );
-      })}
-    </>
-  );
-}
-
-function MobileLinks({ pathname }: { pathname: string | null }) {
-  return (
-    <>
-      {EXTRA.map((item) => {
-        const active = isActive(item, pathname);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "rounded-md px-2 py-1 whitespace-nowrap",
-              active ? "bg-matcha font-bold" : "text-ink-muted",
-            )}
-          >
-            {item.label}
           </Link>
         );
       })}
@@ -214,11 +186,6 @@ function WithPathname({
 export function NavDesktop({ fallback = false }: { fallback?: boolean }) {
   if (fallback) return <DesktopLinks pathname={null} />;
   return <WithPathname render={(p) => <DesktopLinks pathname={p} />} />;
-}
-
-export function NavMobile({ fallback = false }: { fallback?: boolean }) {
-  if (fallback) return <MobileLinks pathname={null} />;
-  return <WithPathname render={(p) => <MobileLinks pathname={p} />} />;
 }
 
 export function NavTabs({ fallback = false }: { fallback?: boolean }) {

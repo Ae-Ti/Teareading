@@ -37,7 +37,7 @@ test("글별 공개 범위와 프로필 비공개", async ({
   await expect(columns).not.toContainText("나만 보는 칼럼");
 
   // 프로필을 비공개로 바꾸면 닉네임과 사진만 보인다
-  await owner.goto("/mypage");
+  await owner.goto("/mypage/settings");
   await owner.locator("label", { hasText: /^비공개$/ }).click();
   await expect(owner.getByText("다른 회원에게는 닉네임과")).toBeVisible();
   await expect(async () => {
