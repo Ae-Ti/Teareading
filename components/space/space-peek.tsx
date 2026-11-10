@@ -10,14 +10,20 @@ export function useSpacePeek() {
 
   useEffect(() => {
     const supabase = createClient();
-    const channel = supabase.channel(SPACE_CHANNEL);
-    channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState<SpacePresence>();
-        setPeople(Object.values(state).map((metas) => metas[0]));
-      })
-      .subscribe();
+    const channel = supabase.channel(SPACE_CHANNEL, {
+      config: { private: true },
+    });
+    let active = true;
+    channel.on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState<SpacePresence>();
+      setPeople(Object.values(state).map((metas) => metas[0]));
+    });
+    // 비공개 채널은 로그인 토큰이 있어야 해서, 토큰을 넘긴 뒤 연결한다
+    void supabase.realtime.setAuth().finally(() => {
+      if (active) channel.subscribe();
+    });
     return () => {
+      active = false;
       void supabase.removeChannel(channel);
     };
   }, []);

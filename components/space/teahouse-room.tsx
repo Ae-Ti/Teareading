@@ -1,6 +1,9 @@
 "use client";
 
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import type {
+  REALTIME_SUBSCRIBE_STATES,
+  RealtimeChannel,
+} from "@supabase/supabase-js";
 import Link from "next/link";
 import {
   useCallback,
@@ -473,9 +476,14 @@ export function TeahouseRoom({
     if (!MAPS[mapId].shared) return;
     const supabase = createClient();
     const channel = supabase.channel(spaceChannel(mapId), {
-      config: { presence: { key: me.user_id }, broadcast: { self: false } },
+      config: {
+        private: true, // 로그인 회원만 접속 (20261111000200_space_channel_auth.sql)
+        presence: { key: me.user_id },
+        broadcast: { self: false },
+      },
     });
     channelRef.current = channel;
+    let active = true;
 
     channel
       .on("presence", { event: "sync" }, () => {
@@ -537,26 +545,32 @@ export function TeahouseRoom({
         )
           return;
         sceneRef.current?.walk(msg.user_id, msg.from, msg.path);
-      })
-      .subscribe((s) => {
-        if (s === "SUBSCRIBED") {
-          if (
-            insideRef.current &&
-            myStateRef.current &&
-            mapRef.current.id === mapId
-          ) {
-            // 맵을 옮겼거나 다시 연결한 경우: 이 채널에서 다시 나타난다
-            lastTrackRef.current = Date.now();
-            void channel.track(myStateRef.current);
-            setStatus("inside");
-          } else {
-            setStatus((prev) => (prev === "connecting" ? "ready" : prev));
-          }
-        }
-        if (s === "CHANNEL_ERROR" || s === "TIMED_OUT") setStatus("error");
       });
 
+    const onStatus = (s: `${REALTIME_SUBSCRIBE_STATES}`) => {
+      if (s === "SUBSCRIBED") {
+        if (
+          insideRef.current &&
+          myStateRef.current &&
+          mapRef.current.id === mapId
+        ) {
+          // 맵을 옮겼거나 다시 연결한 경우: 이 채널에서 다시 나타난다
+          lastTrackRef.current = Date.now();
+          void channel.track(myStateRef.current);
+          setStatus("inside");
+        } else {
+          setStatus((prev) => (prev === "connecting" ? "ready" : prev));
+        }
+      }
+      if (s === "CHANNEL_ERROR" || s === "TIMED_OUT") setStatus("error");
+    };
+    // 비공개 채널은 로그인 토큰이 있어야 해서, 토큰을 넘긴 뒤 연결한다
+    void supabase.realtime.setAuth().finally(() => {
+      if (active) channel.subscribe(onStatus);
+    });
+
     return () => {
+      active = false;
       channelRef.current = null;
       void supabase.removeChannel(channel);
     };
