@@ -177,6 +177,17 @@ body {
   color: var(--tr-ink);
   padding: 0 4px;
 }
+.space-label-message {
+  max-width: 11rem;
+  border: 1.5px solid var(--tr-ink);
+  border-radius: 8px;
+  background: var(--tr-surface);
+  color: var(--tr-ink);
+  padding: 1px 6px;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .space-label-place {
   border: 1.5px solid var(--tr-ink);
   border-radius: 3px;

@@ -71,9 +71,11 @@ export type Database = {
       books: {
         Row: {
           author: string | null;
+          cover_url: string | null;
           created_at: string;
           genres: string[];
           id: string;
+          pages_adjust: number;
           status: string;
           title: string;
           updated_at: string;
@@ -82,9 +84,11 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           author?: string | null;
+          cover_url?: string | null;
           created_at?: string;
           genres?: string[];
           id?: string;
+          pages_adjust?: number;
           status?: string;
           title: string;
           updated_at?: string;
@@ -92,9 +96,11 @@ export type Database = {
         };
         Update: {
           author?: string | null;
+          cover_url?: string | null;
           created_at?: string;
           genres?: string[];
           id?: string;
+          pages_adjust?: number;
           status?: string;
           title?: string;
           updated_at?: string;
@@ -977,6 +983,7 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: {
           author: string;
+          cover_url: string;
           created_at: string;
           genres: string[];
           id: string;
@@ -1049,6 +1056,7 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      public_profile_stats: { Args: { p_user_id: string }; Returns: Json };
       record_post_view: { Args: { p_post_id: string }; Returns: boolean };
       resume_timer: {
         Args: { p_id: string };
@@ -1069,6 +1077,10 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      set_book_pages: {
+        Args: { p_book_id: string; p_total: number };
+        Returns: number;
       };
       set_chat_pref: {
         Args: {

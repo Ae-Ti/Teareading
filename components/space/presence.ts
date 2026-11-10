@@ -19,8 +19,18 @@ export type SpacePresence = {
   pos?: Point;
   dir?: Dir;
   seat?: string | null;
+  // 앉아 있는 동안 보이는 상태 메시지 (저장하지 않고 같은 공간 사람에게만 전달)
+  message?: string | null;
 };
 
 // Broadcast 이동 메시지: 클릭 한 번에 경로 전체를 보낸다
 export const MOVE_EVENT = "move";
+// Broadcast 상태 메시지: 위치·자리·상태 메시지를 바로 알린다.
+// Presence는 서버 제한(연결당 30초에 5번)이 있어 늦게 들어온 사람을 위한 저장용으로만 드물게 쓴다.
+export const STATE_EVENT = "state";
+export type StateMessage = Pick<
+  SpacePresence,
+  "user_id" | "pos" | "dir" | "seat" | "message"
+>;
+
 export type MoveMessage = { user_id: string; from: Point; path: Point[] };

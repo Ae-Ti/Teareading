@@ -28,6 +28,13 @@ import {
 } from "@/lib/space/map";
 import type { RoomStats, RoomStyle } from "@/lib/space/room";
 import { findPath, isValidPath, nearestWalkable } from "@/lib/space/path";
+import {
+  cleanMessage,
+  clearSnapshot,
+  readSnapshot,
+  SPACE_MESSAGE_MAX,
+  writeSnapshot,
+} from "@/lib/space/resume";
 import { createClient } from "@/lib/supabase/client";
 import { detectDevice } from "@/lib/track";
 import { AvatarEditor } from "./avatar-editor";
@@ -37,9 +44,16 @@ import type { Decor } from "./pixel/tiles";
 import {
   MOVE_EVENT,
   spaceChannel,
+  STATE_EVENT,
   type MoveMessage,
   type SpacePresence,
+  type StateMessage,
 } from "./presence";
+
+// Presence 전송 간격. 서버 제한(30초에 5번)을 넘지 않게 한다.
+const TRACK_GAP_MS = 7000;
+// 바로 받은 상태를 Presence 값보다 우선하는 시간 (Presence는 최대 TRACK_GAP_MS 늦다)
+const LIVE_STATE_MS = 10_000;
 
 type Status = "connecting" | "ready" | "entering" | "inside" | "error";
 
@@ -99,6 +113,9 @@ export function TeahouseRoom({
   const [roomStyle, setRoomStyle] = useState(initialRoomStyle);
   const [mapId, setMapId] = useState<MapId>("teahouse");
   const [toast, setToast] = useState<string | null>(null);
+  const [seated, setSeated] = useState(false);
+  const [myMessage, setMyMessage] = useState<string | null>(null);
+  const [messageDraft, setMessageDraft] = useState("");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -109,9 +126,15 @@ export function TeahouseRoom({
   const othersRef = useRef<SpacePresence[]>([]);
   const myStateRef = useRef<SpacePresence | null>(null);
   const trackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTrackRef = useRef(0);
+  const liveRef = useRef(
+    new Map<string, { at: number; state: StateMessage }>(),
+  );
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapRef = useRef<GameMap>(MAPS.teahouse);
   const movingRef = useRef(false); // 문을 지나는 중에는 입력을 받지 않는다
+  const seatCheckRef = useRef(false); // 돌아온 직후 내 자리에 다른 사람이 앉았는지 확인
   const decorRef = useRef<Decor>({
     style: initialRoomStyle,
     stats: roomStats,
@@ -124,15 +147,54 @@ export function TeahouseRoom({
   }, []);
 
   // 내 상태(위치·자리·캐릭터)를 Presence에 반영. 연달아 바뀌면 마지막 것만 보낸다.
-  const pushState = useCallback((patch: Partial<SpacePresence>) => {
-    if (!myStateRef.current) return;
-    myStateRef.current = { ...myStateRef.current, ...patch };
-    if (trackTimer.current) clearTimeout(trackTimer.current);
-    trackTimer.current = setTimeout(() => {
-      if (insideRef.current && myStateRef.current)
-        void channelRef.current?.track(myStateRef.current);
-    }, 300);
-  }, []);
+  const pushState = useCallback(
+    (patch: Partial<SpacePresence>) => {
+      if (!myStateRef.current) return;
+      // 일어나면 상태 메시지도 함께 사라진다
+      const standing = "seat" in patch && !patch.seat;
+      myStateRef.current = {
+        ...myStateRef.current,
+        ...patch,
+        ...(standing ? { message: null } : {}),
+      };
+      if ("seat" in patch) setSeated(!standing);
+      if (standing) {
+        setMyMessage(null);
+        setMessageDraft("");
+        sceneRef.current?.setMessage(me.user_id, null);
+      }
+      // 같은 공간 사람에게는 바로 알린다 (연달아 바뀌면 마지막 것만)
+      if (stateTimer.current) clearTimeout(stateTimer.current);
+      stateTimer.current = setTimeout(() => {
+        const state = myStateRef.current;
+        if (!insideRef.current || !state) return;
+        const payload: StateMessage = {
+          user_id: state.user_id,
+          pos: state.pos,
+          dir: state.dir,
+          seat: state.seat,
+          message: state.message,
+        };
+        void channelRef.current?.send({
+          type: "broadcast",
+          event: STATE_EVENT,
+          payload,
+        });
+      }, 150);
+      // 늦게 들어온 사람을 위한 Presence는 드물게, 마지막 상태로 보낸다
+      if (trackTimer.current) return;
+      trackTimer.current = setTimeout(
+        () => {
+          trackTimer.current = null;
+          if (!insideRef.current || !myStateRef.current) return;
+          lastTrackRef.current = Date.now();
+          void channelRef.current?.track(myStateRef.current);
+        },
+        Math.max(300, lastTrackRef.current + TRACK_GAP_MS - Date.now()),
+      );
+    },
+    [me.user_id],
+  );
 
   const seatTakenByOther = useCallback(
     (seatId: string) => othersRef.current.some((p) => p.seat === seatId),
@@ -160,27 +222,35 @@ export function TeahouseRoom({
   );
 
   // 맵을 바꾼다. 실시간 채널은 mapId를 따라 아래 effect에서 다시 연결된다.
-  const switchMap = useCallback((next: GameMap, tile: Point, dir: Dir) => {
-    if (trackTimer.current) clearTimeout(trackTimer.current);
-    mapRef.current = next;
-    othersRef.current = [];
-    setPeople([]);
-    setMapId(next.id);
-    setEditingRoom(false);
-    sceneRef.current?.setMap(
-      next,
-      next.id === "room" ? decorRef.current : undefined,
-      tile,
-      dir,
-    );
-    if (myStateRef.current)
-      myStateRef.current = {
-        ...myStateRef.current,
-        pos: tile,
+  const switchMap = useCallback(
+    (next: GameMap, tile: Point, dir: Dir) => {
+      if (trackTimer.current) clearTimeout(trackTimer.current);
+      mapRef.current = next;
+      othersRef.current = [];
+      setPeople([]);
+      setMapId(next.id);
+      setEditingRoom(false);
+      sceneRef.current?.setMap(
+        next,
+        next.id === "room" ? decorRef.current : undefined,
+        tile,
         dir,
-        seat: null,
-      };
-  }, []);
+      );
+      if (myStateRef.current)
+        myStateRef.current = {
+          ...myStateRef.current,
+          pos: tile,
+          dir,
+          seat: null,
+          message: null,
+        };
+      setSeated(false);
+      setMyMessage(null);
+      setMessageDraft("");
+      sceneRef.current?.setMessage(me.user_id, null);
+    },
+    [me.user_id],
+  );
 
   const goThrough = useCallback(
     (door: Door) => {
@@ -239,6 +309,69 @@ export function TeahouseRoom({
     };
   }, [me.user_id, goThrough, moveMe, pushState, seatTakenByOther, showToast]);
 
+  // 다른 화면에 갔다 돌아오면 있던 곳에서 이어서 시작한다.
+  // Next.js가 화면을 숨겼다 다시 보여 줄 때도, 새로 그릴 때도 여기를 지난다.
+  useEffect(() => {
+    if (insideRef.current || !sceneRef.current) return;
+    const saved = readSnapshot(me.user_id);
+    if (!saved) return;
+    const map = MAPS[saved.mapId];
+    const pos = isWalkable(map, saved.pos.x, saved.pos.y)
+      ? saved.pos
+      : map.spawn;
+    const seat = seatById(map, saved.seat);
+    const sitting = !!seat && seat.x === pos.x && seat.y === pos.y;
+    const dir = sitting ? seat.face : saved.dir;
+    const message = sitting ? saved.message : null;
+
+    /* eslint-disable react-hooks/set-state-in-effect -- 브라우저 저장소(외부)에서 되살린 값을 화면에 반영한다 */
+    mapRef.current = map;
+    setMapId(map.id);
+    sceneRef.current.setMap(
+      map,
+      map.id === "room" ? decorRef.current : undefined,
+      pos,
+      dir,
+    );
+    myStateRef.current = {
+      ...me,
+      timer,
+      timer_started_at: timerStartedAt,
+      entered_at: new Date().toISOString(),
+      look,
+      pos,
+      dir,
+      seat: sitting ? seat.id : null,
+      message,
+    };
+    insideRef.current = true;
+    seatCheckRef.current = sitting;
+    sceneRef.current.upsert(me.user_id, {
+      look,
+      name: me.nickname,
+      status: timerStatus(timer, timerStartedAt, Date.now()),
+      tile: pos,
+      dir,
+      sitting,
+      isMe: true,
+      message,
+    });
+    setStatus("inside");
+    setSeated(sitting);
+    setMyMessage(message);
+    setMessageDraft(message ?? "");
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // 체류 기록은 화면을 떠날 때 닫았으므로 새로 연다
+    const visit = setTimeout(() => {
+      void enterSpace(detectDevice()).then(({ visitId }) => {
+        visitRef.current = visitId;
+      });
+    }, 0);
+    return () => clearTimeout(visit);
+    // 화면이 다시 보일 때만 실행한다. 입장 중에는 위 조건으로 바로 끝난다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me.user_id]);
+
   // 다른 사람 캐릭터를 Presence 상태에 맞춘다
   const syncOthers = useCallback(() => {
     const scene = sceneRef.current;
@@ -258,6 +391,7 @@ export function TeahouseRoom({
         tile: pos,
         dir: seat?.face ?? p.dir ?? "down",
         sitting: !!seat && seat.x === pos.x && seat.y === pos.y,
+        message: seat ? cleanMessage(p.message) : null,
       });
     }
     for (const id of scene.ids()) {
@@ -282,8 +416,37 @@ export function TeahouseRoom({
         const list = Object.values(state)
           .map((metas) => metas[0])
           .sort((a, b) => a.entered_at.localeCompare(b.entered_at));
-        othersRef.current = list.filter((p) => p.user_id !== me.user_id);
+        // Presence보다 최근에 바로 받은 상태가 있으면 그것을 쓴다
+        const now = Date.now();
+        othersRef.current = list
+          .filter((p) => p.user_id !== me.user_id)
+          .map((p) => {
+            const live = liveRef.current.get(p.user_id);
+            return live && now - live.at < LIVE_STATE_MS
+              ? { ...p, ...live.state }
+              : p;
+          });
         setPeople(list);
+        syncOthers();
+        // 비운 사이 내 자리에 다른 분이 앉았으면 입구로 옮긴다
+        if (seatCheckRef.current) {
+          seatCheckRef.current = false;
+          const mine = myStateRef.current?.seat;
+          if (mine && othersRef.current.some((p) => p.seat === mine)) {
+            const spawn = mapRef.current.spawn;
+            sceneRef.current?.setMap(mapRef.current, undefined, spawn, "up");
+            pushState({ seat: null, pos: spawn, dir: "up" });
+            showToast("비운 사이 다른 분이 앉아서 입구로 왔어요");
+          }
+        }
+      })
+      .on("broadcast", { event: STATE_EVENT }, ({ payload }) => {
+        const msg = payload as StateMessage;
+        if (!msg?.user_id || msg.user_id === me.user_id) return;
+        liveRef.current.set(msg.user_id, { at: Date.now(), state: msg });
+        othersRef.current = othersRef.current.map((p) =>
+          p.user_id === msg.user_id ? { ...p, ...msg } : p,
+        );
         syncOthers();
       })
       .on("broadcast", { event: MOVE_EVENT }, ({ payload }) => {
@@ -300,8 +463,13 @@ export function TeahouseRoom({
       })
       .subscribe((s) => {
         if (s === "SUBSCRIBED") {
-          if (insideRef.current && myStateRef.current) {
+          if (
+            insideRef.current &&
+            myStateRef.current &&
+            mapRef.current.id === mapId
+          ) {
             // 맵을 옮겼거나 다시 연결한 경우: 이 채널에서 다시 나타난다
+            lastTrackRef.current = Date.now();
             void channel.track(myStateRef.current);
             setStatus("inside");
           } else {
@@ -315,20 +483,37 @@ export function TeahouseRoom({
       channelRef.current = null;
       void supabase.removeChannel(channel);
     };
-  }, [me.user_id, attempt, mapId, syncOthers]);
+  }, [me.user_id, attempt, mapId, syncOthers, pushState, showToast]);
 
-  // 화면을 떠나면 체류 기록을 닫는다
-  useEffect(
-    () => () => {
+  // 화면을 떠나면 있던 곳을 저장하고 체류 기록을 닫는다
+  useEffect(() => {
+    const save = () => {
+      const state = myStateRef.current;
+      if (!insideRef.current || !state?.pos) return;
+      writeSnapshot(me.user_id, {
+        mapId: mapRef.current.id,
+        pos: state.pos,
+        dir: state.dir ?? "up",
+        seat: state.seat ?? null,
+        message: state.message ?? null,
+      });
+    };
+    window.addEventListener("pagehide", save);
+    return () => {
+      window.removeEventListener("pagehide", save);
+      save();
+      for (const timer of [trackTimer, stateTimer]) {
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = null;
+      }
       if (insideRef.current && visitRef.current) {
         void leaveSpace(visitRef.current, detectDevice());
       }
       insideRef.current = false;
       visitRef.current = null;
       myStateRef.current = null;
-    },
-    [],
-  );
+    };
+  }, [me.user_id]);
 
   // 타이머 분 표시는 30초마다 다시 계산한다
   useEffect(() => {
@@ -360,7 +545,9 @@ export function TeahouseRoom({
       pos: spawn,
       dir: "up",
       seat: null,
+      message: null,
     };
+    lastTrackRef.current = Date.now();
     const res = await channel.track(state);
     if (res !== "ok") {
       setStatus("error");
@@ -387,7 +574,14 @@ export function TeahouseRoom({
     if (!insideRef.current || movingRef.current) return;
     insideRef.current = false;
     myStateRef.current = null;
-    if (trackTimer.current) clearTimeout(trackTimer.current);
+    clearSnapshot(me.user_id);
+    setSeated(false);
+    setMyMessage(null);
+    setMessageDraft("");
+    for (const timer of [trackTimer, stateTimer]) {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
+    }
     sceneRef.current?.remove(me.user_id);
     if (mapRef.current.id === "teahouse") {
       await channelRef.current?.untrack();
@@ -453,6 +647,14 @@ export function TeahouseRoom({
     },
     [showToast],
   );
+
+  const saveMessage = (value: string) => {
+    const message = cleanMessage(value);
+    setMyMessage(message);
+    setMessageDraft(message ?? "");
+    sceneRef.current?.setMessage(me.user_id, message);
+    pushState({ message });
+  };
 
   const inside = status === "inside";
   const others = people.filter((p) => p.user_id !== me.user_id);
@@ -566,6 +768,43 @@ export function TeahouseRoom({
           </div>
         )}
       </div>
+      {inside && seated && (
+        <form
+          className="flex flex-wrap items-end gap-2 rounded-lg border-2 border-ink bg-surface p-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            saveMessage(messageDraft);
+          }}
+        >
+          <label className="flex min-w-48 flex-1 flex-col gap-1 text-sm font-bold">
+            상태 메시지
+            <input
+              value={messageDraft}
+              maxLength={SPACE_MESSAGE_MAX}
+              onChange={(e) => setMessageDraft(e.target.value)}
+              placeholder="예: 데미안 읽는 중 🍵"
+              className="h-10 rounded-md border-2 border-ink bg-surface px-3 text-base font-normal placeholder:text-ink-subtle focus:shadow-hard-sm focus:outline-none"
+            />
+          </label>
+          <Button size="sm" className="h-10">
+            올리기
+          </Button>
+          {myMessage && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-10"
+              onClick={() => saveMessage("")}
+            >
+              지우기
+            </Button>
+          )}
+          <p className="w-full text-xs text-ink-muted">
+            앉아 있는 동안 머리 위에 보여요. 일어나면 사라져요.
+          </p>
+        </form>
+      )}
       {inside && (
         <p className="text-xs text-ink-muted">
           바닥을 누르면 걸어가요. 방석을 누르면 앉고, 문을 밟으면 다른 곳으로

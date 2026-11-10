@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { BookCover } from "@/components/books/book-cover";
 import { BookDialogButton } from "@/components/books/book-dialog";
 import { GenreTags } from "@/components/books/book-tags";
 import { DeleteBookButton } from "@/components/books/delete-book-button";
+import { PagesEditor } from "@/components/books/pages-editor";
 import { StatusSelect } from "@/components/books/status-select";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -50,19 +52,25 @@ async function BookDetail({ params }: { params: Promise<{ id: string }> }) {
         action={{ href: "/me/reading", label: "서재로" }}
       />
     );
-  const pages = logs.reduce((sum, l) => sum + (l.pages_read ?? 0), 0);
+  const pages = Math.max(
+    logs.reduce((sum, l) => sum + (l.pages_read ?? 0), 0) + book.pages_adjust,
+    0,
+  );
   const newHref = `/me/reading/new?book=${book.id}`;
 
   return (
     <>
       <Card className="flex flex-col gap-4 p-5 md:p-8">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold break-words md:text-3xl">
-            {book.title}
-          </h1>
-          {book.author && <p className="text-ink-muted">{book.author}</p>}
+        <div className="flex items-start gap-4">
+          <BookCover title={book.title} src={book.cover_url} size="lg" />
+          <div className="flex min-w-0 flex-col gap-2">
+            <h1 className="text-2xl font-bold break-words md:text-3xl">
+              {book.title}
+            </h1>
+            {book.author && <p className="text-ink-muted">{book.author}</p>}
+            <GenreTags genres={book.genres} />
+          </div>
         </div>
-        <GenreTags genres={book.genres} />
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
           <div className="w-28">
             <StatusSelect
@@ -73,7 +81,7 @@ async function BookDetail({ params }: { params: Promise<{ id: string }> }) {
           </div>
           <span>
             읽은 쪽{" "}
-            <b className="font-mono tabular-nums">{pages.toLocaleString()}</b>
+            <PagesEditor id={book.id} title={book.title} pages={pages} />
           </span>
           <span>
             독서록 <b className="font-mono tabular-nums">{logs.length}</b>
@@ -92,6 +100,7 @@ async function BookDetail({ params }: { params: Promise<{ id: string }> }) {
               author: book.author ?? "",
               status: book.status,
               genres: book.genres,
+              coverUrl: book.cover_url ?? "",
             }}
           />
           <DeleteBookButton
@@ -117,19 +126,26 @@ async function BookDetail({ params }: { params: Promise<{ id: string }> }) {
             {logs.map((l) => (
               <li key={l.id}>
                 <Link href={`/me/reading/${l.id}`} className="block">
-                  <Card className="flex flex-col gap-2 p-4 shadow-hard-sm transition hover:-translate-y-px hover:shadow-hard">
-                    <div className="flex items-center justify-between gap-2 text-xs text-ink-muted">
-                      <span>
-                        {formatKoreanDate(l.created_at)}
-                        {l.updated_at !== l.created_at && " · 수정됨"}
-                      </span>
-                      {l.pages_read && (
-                        <Badge>{l.pages_read.toLocaleString()}쪽</Badge>
-                      )}
+                  <Card className="flex items-start gap-3 p-4 shadow-hard-sm transition hover:-translate-y-px hover:shadow-hard">
+                    <BookCover
+                      title={book.title}
+                      src={book.cover_url}
+                      size="md"
+                    />
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                      <div className="flex items-center justify-between gap-2 text-xs text-ink-muted">
+                        <span>
+                          {formatKoreanDate(l.created_at)}
+                          {l.updated_at !== l.created_at && " · 수정됨"}
+                        </span>
+                        {l.pages_read && (
+                          <Badge>{l.pages_read.toLocaleString()}쪽</Badge>
+                        )}
+                      </div>
+                      <p className="line-clamp-3 leading-relaxed break-words whitespace-pre-wrap">
+                        {l.body}
+                      </p>
                     </div>
-                    <p className="line-clamp-3 leading-relaxed break-words whitespace-pre-wrap">
-                      {l.body}
-                    </p>
                   </Card>
                 </Link>
               </li>

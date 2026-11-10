@@ -3,8 +3,8 @@ import { LinkButton } from "@/components/ui/link-button";
 import { StateMessage } from "@/components/ui/state";
 import { ProfileAvatar } from "./avatar";
 import type { PublicProfile } from "@/lib/profile/forms";
-import type { getProfileGroups } from "@/lib/profile/data";
-import { formatKoreanDate } from "@/lib/time";
+import type { getProfileGroups, PublicStats } from "@/lib/profile/data";
+import { formatDuration, formatKoreanDate } from "@/lib/time";
 
 export function ProfileSummary({
   profile,
@@ -31,6 +31,38 @@ export function ProfileSummary({
         )}
       </div>
     </Card>
+  );
+}
+
+export function ProfileStats({ stats }: { stats: PublicStats | null }) {
+  if (!stats)
+    return <StateMessage tone="error" title="활동 통계를 불러오지 못했어요" />;
+  const items = [
+    { label: "연속 학습", value: `${stats.streak.toLocaleString()}일` },
+    { label: "완독", value: `${stats.finished.toLocaleString()}권` },
+    { label: "읽은 쪽", value: `${stats.pages.toLocaleString()}쪽` },
+    { label: "독서 시간", value: formatDuration(stats.reading_seconds) },
+    { label: "다도 시간", value: formatDuration(stats.tea_seconds) },
+    { label: "다도 횟수", value: `${stats.tea_sessions.toLocaleString()}번` },
+  ];
+  return (
+    <section className="space-y-4" aria-labelledby="profile-stats-heading">
+      <h2 id="profile-stats-heading" className="text-xl font-bold">
+        활동 통계
+      </h2>
+      <Card>
+        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {items.map((item) => (
+            <div key={item.label} className="flex flex-col gap-0.5">
+              <dt className="text-xs text-ink-muted">{item.label}</dt>
+              <dd className="text-xl font-bold break-keep tabular-nums">
+                {item.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
+    </section>
   );
 }
 

@@ -86,6 +86,21 @@ test("서재: 도서 추가·상태·장르 태그·필터·독서록 작성·�
   await page.goto("/me/reading");
   await expect(row(novel)).toContainText("45");
 
+  // 읽은 쪽 수를 표에서 바로 고친다
+  await row(novel)
+    .getByRole("button", { name: /읽은 쪽 수 45쪽, 수정/ })
+    .click();
+  const pagesInput = row(novel).getByLabel(`${novel} 읽은 쪽 수`);
+  await pagesInput.fill("300");
+  await pagesInput.press("Enter");
+  await expect(
+    row(novel).getByRole("button", { name: /읽은 쪽 수 300쪽, 수정/ }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    row(novel).getByRole("button", { name: /읽은 쪽 수 300쪽, 수정/ }),
+  ).toBeVisible();
+
   // 책 없이 독서록 주소로 오면 서재로
   await page.goto("/me/reading/new");
   await expect(page).toHaveURL("/me/reading");
@@ -100,7 +115,7 @@ test("서재: 도서 추가·상태·장르 태그·필터·독서록 작성·�
 
   // 책 정보 수정 → 표에 반영
   await page.goto(bookUrl);
-  await page.getByRole("button", { name: "수정" }).click();
+  await page.getByRole("button", { name: "수정", exact: true }).click();
   const edit = page.getByRole("dialog", { name: "도서 수정" });
   await edit.getByLabel("책 제목").fill(`${novel} 개정판`);
   await edit.getByRole("button", { name: "저장" }).click();

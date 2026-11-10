@@ -15,8 +15,10 @@ import {
   type Genre,
 } from "@/lib/books";
 import { requireUser } from "@/lib/supabase/user";
+import { BookCover } from "./book-cover";
 import { BookDialogButton } from "./book-dialog";
 import { genreTone, GenreTags } from "./book-tags";
+import { PagesEditor } from "./pages-editor";
 import { StatusSelect } from "./status-select";
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
@@ -190,16 +192,21 @@ function BookItem({ book: b }: { book: BookRow }) {
         COLS,
       )}
     >
-      <div className="min-w-0">
-        <Link
-          href={`/me/books/${b.id}`}
-          className="block truncate font-bold hover:underline"
-        >
-          {b.title}
+      <div className="flex min-w-0 items-center gap-3">
+        <Link href={`/me/books/${b.id}`} tabIndex={-1} aria-hidden>
+          <BookCover title={b.title} src={b.cover_url} />
         </Link>
-        {b.author && (
-          <p className="truncate text-sm text-ink-muted">{b.author}</p>
-        )}
+        <div className="min-w-0">
+          <Link
+            href={`/me/books/${b.id}`}
+            className="block truncate font-bold hover:underline"
+          >
+            {b.title}
+          </Link>
+          {b.author && (
+            <p className="truncate text-sm text-ink-muted">{b.author}</p>
+          )}
+        </div>
       </div>
       <div className="min-w-0">
         <GenreTags genres={b.genres} />
@@ -210,9 +217,7 @@ function BookItem({ book: b }: { book: BookRow }) {
         </div>
         <p className="text-sm lg:text-right">
           <span className="text-ink-muted lg:sr-only">읽은 쪽 </span>
-          <span className="font-mono font-bold tabular-nums">
-            {b.pages.toLocaleString()}
-          </span>
+          <PagesEditor id={b.id} title={b.title} pages={b.pages} />
         </p>
         <p className="text-sm lg:text-right">
           <span className="text-ink-muted lg:sr-only">독서록 </span>

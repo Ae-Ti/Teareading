@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isAllowedCover } from "@/lib/book-search";
 import { isUuid } from "@/lib/records";
 import type { Database } from "@/types/database";
 
@@ -43,6 +44,7 @@ export const isGenre = (v: unknown): v is Genre =>
 export const GENRE_MAX = 5;
 export const BOOK_TITLE_MAX = 200;
 export const AUTHOR_MAX = 100;
+export const BOOK_PAGES_MAX = 200000;
 
 export type BookRow = {
   id: string;
@@ -50,6 +52,7 @@ export type BookRow = {
   author: string | null;
   status: BookStatus;
   genres: Genre[];
+  cover_url: string | null;
   log_count: number;
   pages: number;
   last_log_at: string | null;
@@ -61,6 +64,7 @@ export type BookValues = {
   author: string;
   status: BookStatus;
   genres: Genre[];
+  coverUrl: string;
 };
 export type BookErrors = Partial<
   Record<"title" | "author" | "genres" | "form", string>
@@ -73,6 +77,10 @@ export function validateBook(form: FormData) {
     author: String(form.get("author") ?? "").trim(),
     status: isBookStatus(status) ? status : "reading",
     genres: [...new Set(form.getAll("genres"))].filter(isGenre),
+    coverUrl: (() => {
+      const url = String(form.get("coverUrl") ?? "");
+      return isAllowedCover(url) ? url : "";
+    })(),
   };
   const errors: BookErrors = {};
   if (!values.title) errors.title = "책 제목을 입력해 주세요.";
@@ -105,7 +113,9 @@ export async function getBook(supabase: Client, id: string) {
   const [book, logs] = await Promise.all([
     supabase
       .from("books")
-      .select("id, title, author, status, genres, created_at")
+      .select(
+        "id, title, author, status, genres, cover_url, pages_adjust, created_at",
+      )
       .eq("id", id)
       .maybeSingle(),
     supabase
@@ -121,7 +131,7 @@ export async function getBook(supabase: Client, id: string) {
     book: book.data as unknown as Omit<
       BookRow,
       "log_count" | "pages" | "last_log_at"
-    >,
+    > & { pages_adjust: number },
     logs: (logs.data ?? []) as BookLog[],
   };
 }
