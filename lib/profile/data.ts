@@ -13,6 +13,27 @@ export function getPublicProfile(client: SupabaseClient<Database>, id: string) {
     .maybeSingle();
 }
 
+export type PublicStats = {
+  streak: number;
+  attendance_days: number;
+  finished: number;
+  pages: number;
+  reading_seconds: number;
+  tea_seconds: number;
+  tea_sessions: number;
+};
+
+// 공개 프로필의 활동 통계. 합계만 받는다 (책 제목·기록 내용은 포함되지 않는다).
+export async function getPublicStats(
+  client: SupabaseClient<Database>,
+  id: string,
+) {
+  const { data, error } = await client.rpc("public_profile_stats", {
+    p_user_id: id,
+  });
+  return { stats: error ? null : (data as unknown as PublicStats), error };
+}
+
 export async function getProfileGroups(
   client: SupabaseClient<Database>,
   id: string,

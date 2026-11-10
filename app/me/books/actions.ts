@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { searchBooks, type BookHit } from "@/lib/book-search";
 import {
+  BOOK_PAGES_MAX,
   isBookStatus,
   validateBook,
   type BookErrors,
@@ -29,7 +31,12 @@ export async function saveBook(
   const { values, errors } = validateBook(form);
   if (errors) return { errors, values };
 
-  const payload = { ...values, author: values.author || null };
+  const { coverUrl, ...fields } = values;
+  const payload = {
+    ...fields,
+    author: values.author || null,
+    cover_url: coverUrl || null,
+  };
   let failed = false;
   let code: string | undefined;
   if (id) {
@@ -69,6 +76,42 @@ export async function setBookStatus(id: string, status: BookStatus) {
     return { error: "상태를 바꾸지 못했어요. 다시 시도해 주세요." };
   refresh();
   return { error: null };
+}
+
+// 표에서 고치는 읽은 쪽 수
+export async function setBookPages(id: string, total: number) {
+  const { supabase } = await requireUser("/me/reading");
+  if (
+    !isUuid(id) ||
+    !Number.isInteger(total) ||
+    total < 0 ||
+    total > BOOK_PAGES_MAX
+  )
+    return { error: "쪽 수를 확인해 주세요." };
+  const { error } = await supabase.rpc("set_book_pages", {
+    p_book_id: id,
+    p_total: total,
+  });
+  if (error) return { error: "저장하지 못했어요. 다시 시도해 주세요." };
+  refresh();
+  return { error: null };
+}
+
+// 도서 추가 화면의 책 검색 (표지·저자 채우기)
+export async function searchBookInfo(
+  query: string,
+): Promise<{ results: BookHit[]; error: string | null }> {
+  await requireUser("/me/reading");
+  const q = query.trim().slice(0, 100);
+  if (!q) return { results: [], error: "책 제목을 입력해 주세요." };
+  try {
+    return { results: await searchBooks(q), error: null };
+  } catch {
+    return {
+      results: [],
+      error: "지금은 검색할 수 없어요. 제목을 직접 입력해 주세요.",
+    };
+  }
 }
 
 export async function deleteBook(id: string) {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { BookCover } from "@/components/books/book-cover";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/link-button";
@@ -70,6 +71,9 @@ async function RecordDetail({
   return (
     <article className="flex flex-col gap-6">
       <header className="flex flex-col gap-3">
+        {row.book_id && (
+          <BookCover title={row.title} src={row.book?.cover_url} size="lg" />
+        )}
         <div className="flex flex-wrap gap-2">
           <Badge tone={config.tone}>{config.label}</Badge>
           {row.tea_type && <Badge>{TEA_TYPES[row.tea_type]}</Badge>}

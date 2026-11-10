@@ -2,13 +2,18 @@ import { Suspense } from "react";
 import {
   ProfileSummary,
   ProfileGroups,
+  ProfileStats,
 } from "@/components/profile/profile-summary";
 import { BlockButton } from "@/components/dm/block-button";
 import { StartDmButton } from "@/components/dm/start-dm-button";
 import { LinkButton } from "@/components/ui/link-button";
 import { LoadingBlock, StateMessage } from "@/components/ui/state";
 import { isBlockedByMe } from "@/lib/dm";
-import { getPublicProfile, getProfileGroups } from "@/lib/profile/data";
+import {
+  getPublicProfile,
+  getProfileGroups,
+  getPublicStats,
+} from "@/lib/profile/data";
 import { requireUser } from "@/lib/supabase/user";
 
 export const metadata = { title: "공개 프로필 · 티어리딩" };
@@ -48,9 +53,10 @@ async function PublicProfile({ params }: PageProps<"/u/[id]">) {
       </div>
     );
   const isMe = userId === id;
-  const [groups, block] = await Promise.all([
+  const [groups, block, activity] = await Promise.all([
     getProfileGroups(supabase, id),
     isMe ? null : isBlockedByMe(supabase, userId, id),
+    getPublicStats(supabase, id),
   ]);
   return (
     <div className="mx-auto max-w-3xl space-y-7 py-8 md:py-10">
@@ -74,6 +80,7 @@ async function PublicProfile({ params }: PageProps<"/u/[id]">) {
           />
         </div>
       )}
+      <ProfileStats stats={activity.stats} />
       <ProfileGroups result={groups} retryHref={`/u/${id}`} />
     </div>
   );

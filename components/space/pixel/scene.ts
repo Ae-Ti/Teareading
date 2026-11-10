@@ -30,6 +30,7 @@ type Entity = {
   label: HTMLDivElement;
   name: string;
   status: string;
+  message: string | null;
 };
 
 export type SceneEvents = {
@@ -141,6 +142,7 @@ export class TeahouseScene {
       dir?: Dir;
       sitting?: boolean;
       isMe?: boolean;
+      message?: string | null;
     },
   ) {
     let e = this.entities.get(id);
@@ -162,6 +164,7 @@ export class TeahouseScene {
         label,
         name: "",
         status: "",
+        message: null,
       };
       this.entities.set(id, e);
     } else if (opts.tile && !e.next && e.path.length === 0) {
@@ -172,23 +175,47 @@ export class TeahouseScene {
       if (opts.sitting !== undefined) e.sitting = opts.sitting;
     }
     e.look = opts.look;
-    if (e.name !== opts.name || e.status !== opts.status) {
+    const message = opts.message === undefined ? e.message : opts.message;
+    if (
+      e.name !== opts.name ||
+      e.status !== opts.status ||
+      e.message !== message
+    ) {
       e.name = opts.name;
       e.status = opts.status;
-      e.label.replaceChildren();
-      if (opts.status) {
-        const s = document.createElement("span");
-        s.className = "space-label-status";
-        s.textContent = opts.status;
-        e.label.appendChild(s);
-      }
-      const n = document.createElement("span");
-      n.className = e.isMe
-        ? "space-label-name space-label-me"
-        : "space-label-name";
-      n.textContent = opts.name;
-      e.label.appendChild(n);
+      e.message = message;
+      this.drawLabel(e);
     }
+  }
+
+  // 앉아 있는 동안 머리 위에 보이는 상태 메시지
+  setMessage(id: string, message: string | null) {
+    const e = this.entities.get(id);
+    if (!e || e.message === message) return;
+    e.message = message;
+    this.drawLabel(e);
+  }
+
+  private drawLabel(e: Entity) {
+    e.label.replaceChildren();
+    if (e.message) {
+      const m = document.createElement("span");
+      m.className = "space-label-message";
+      m.textContent = e.message;
+      e.label.appendChild(m);
+    }
+    if (e.status) {
+      const s = document.createElement("span");
+      s.className = "space-label-status";
+      s.textContent = e.status;
+      e.label.appendChild(s);
+    }
+    const n = document.createElement("span");
+    n.className = e.isMe
+      ? "space-label-name space-label-me"
+      : "space-label-name";
+    n.textContent = e.name;
+    e.label.appendChild(n);
   }
 
   remove(id: string) {

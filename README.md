@@ -42,6 +42,7 @@ npm run test:auth:e2e   # 브라우저 E2E (처음엔 npx playwright install chr
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | 클라이언트·서버 | Supabase 프로젝트 URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | 클라이언트·서버 | Publishable key (예전 이름: anon key) |
+| `KAKAO_REST_API_KEY` | 서버 (선택) | 도서 검색용 카카오 REST API 키. 없으면 Open Library를 쓰며 한국 책 표지가 적다 |
 
 `service_role`/secret 키는 **절대 `NEXT_PUBLIC_` 변수에 넣지 않는다.** 현재는 쓰지 않는다.
 Vercel에는 Production·Preview 환경 모두에 같은 이름으로 등록한다.

@@ -92,3 +92,19 @@
 - [ ] `profile.spec.ts`의 프로필 수정 테스트가 한 번 실패했다. 저장한 소개 글이 이전 글과 붙어 나왔고, 다시 돌리니 3번 모두 통과했다. 원인은 찾지 못했다
 
 로컬 DB를 맞출 때: `npx supabase migration up --local` (필요하면 `--include-all`, D6 점검 9장).
+
+## [ ] 찻집 변경 확인 (`feat/woong-space-profile`, 2026-11-10, 웅싯)
+
+태일 담당인 찻집 코드를 고쳤다. 웅싯 판단으로 먼저 올렸으니, **마음에 안 들면 태일이 원래대로 되돌려도 된다.**
+
+| 변경 | 위치 |
+|---|---|
+| 앉아 있을 때 상태 메시지 (저장 안 함, 일어나면 사라짐) | `components/space/teahouse-room.tsx`, `pixel/scene.ts`, `presence.ts` |
+| 다른 화면에 갔다 와도 위치·자리·메시지 유지 (이 탭의 sessionStorage, `나가기`를 누르면 지움) | `lib/space/resume.ts`, `teahouse-room.tsx` |
+| **버그 수정: Presence 전송 제한** | `teahouse-room.tsx`의 `pushState` |
+
+버그 내용: Realtime Presence는 연결당 30초에 5번까지만 받는다(`ClientPresenceRateLimitReached`). 걸을 때마다 `track`해서 많이 걸으면 다른 사람 화면에서 캐릭터가 사라졌다. 위치·자리·메시지는 Broadcast(`STATE_EVENT`)로 바로 보내고, `track`은 늦게 들어온 사람을 위해 7초에 한 번만 보낸다.
+
+되돌리는 방법: 이 브랜치의 커밋을 `git revert` 하면 된다. 상태 메시지와 복원만 빼고 싶으면 `lib/space/resume.ts`와 `teahouse-room.tsx`의 복원 effect만 지우면 되고, Presence 제한 수정은 남겨 두는 편이 좋다.
+
+같은 브랜치의 DB 변경(`20261110000200_library_profile.sql`): 책 표지·읽은 쪽 수정, 공개 프로필 합계 통계(`public_profile_stats`). 태일이 정의한 `my_record_stats`를 이 파일에서 다시 정의했다.
