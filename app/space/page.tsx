@@ -25,6 +25,15 @@ export default function Page() {
   );
 }
 
+// 찻집의 "N분" 표시에서 지난 멈춤 시간을 뺀다
+function focusStartedAt(
+  timer: { started_at: string; paused_seconds: number } | null,
+) {
+  if (!timer) return null;
+  const started = new Date(timer.started_at).getTime();
+  return new Date(started + timer.paused_seconds * 1000).toISOString();
+}
+
 async function Room() {
   const { supabase, userId } = await requireUser("/space");
   const count = (table: "reading_logs" | "tea_columns") =>
@@ -38,7 +47,7 @@ async function Room() {
         .single(),
       supabase
         .from("timer_sessions")
-        .select("activity, started_at")
+        .select("activity, started_at, paused_at, paused_seconds")
         .eq("status", "running")
         .maybeSingle(),
       supabase
@@ -71,8 +80,13 @@ async function Room() {
         avatar_url: profile.data?.avatar_url ?? null,
       }}
       initialLook={parseLook(avatar.data?.look) ?? defaultLook(userId)}
-      timer={(running.data?.activity as "tea" | "reading" | undefined) ?? null}
-      timerStartedAt={running.data?.started_at ?? null}
+      timer={
+        // 멈춘 타이머는 찻집에 표시하지 않는다
+        running.data && !running.data.paused_at
+          ? (running.data.activity as "tea" | "reading")
+          : null
+      }
+      timerStartedAt={focusStartedAt(running.data)}
       initialRoomStyle={parseRoomStyle(room.data?.style) ?? DEFAULT_ROOM_STYLE}
       roomStats={{
         books: books.count ?? 0,

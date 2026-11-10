@@ -36,6 +36,8 @@
     "test:record-stats:e2e": "playwright test --config tests/auth.playwright.config.ts record-stats.spec.ts",
     "test:books:db": "node --import tsx --test tests/books.db.test.ts",
     "test:library:e2e": "playwright test --config tests/auth.playwright.config.ts library.spec.ts",
+    "test:timer:db": "node --import tsx --test tests/timer.db.test.ts",
+    "test:timer:e2e": "playwright test --config tests/auth.playwright.config.ts timer-pause.spec.ts",
     "test:rls": "node --import tsx --test tests/rls.db.test.ts",
     "test:space": "node --import tsx --test tests/space.test.ts"
   },

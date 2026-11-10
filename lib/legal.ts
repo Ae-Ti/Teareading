@@ -10,7 +10,7 @@ export const LEGAL = {
   // 문의·탈퇴·개인정보 요청을 받는 이메일
   contactEmail: "ungsikjo0601@gmail.com" as string | null,
   // Supabase 프로덕션 프로젝트 리전 (예: "대한민국(서울, ap-northeast-2)")
-  dataRegion: null as string | null,
+  dataRegion: "대한민국(서울, ap-northeast-2)" as string | null,
   // 시행일 (출시일)
   effectiveDate: "2026년 11월 9일",
 } as const;

@@ -1,5 +1,6 @@
 -- 출시 지표 집계 (docs/taeil/d6-quality.md 2장). Supabase SQL Editor에서 params 날짜만 바꿔 실행한다.
 with params as (
+  -- 측정 기간: 출시일부터 2주. 출시일이 정해지면 아래 두 날짜를 바꾼다.
   select timestamptz '2026-11-09 00:00+09' as from_at, timestamptz '2026-11-23 00:00+09' as to_at
 ),
 signups as (

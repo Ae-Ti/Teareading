@@ -23,23 +23,24 @@
 - 17개 중 13개 기록 확인. 남은 4개는 해당 기능이 생기면 `track()`만 부르면 된다.
 - `device`가 비어 있는 `signup_completed`는 DB 테스트(`tests/auth.db.test.ts`)가 직접 넣은 행이다. 실제 화면 경로는 모두 `device`가 채워진다.
 
-## 2. 지표 목표치 초안 (PRD 핵심 지표) — 웅싯 확인 필요
+## 2. 지표 목표치 (PRD 핵심 지표) — 태일 확정 2026-11-10
 
-측정 기간: **출시 후 2주 (2026-11-09 ~ 11-22, KST)**. 집계 쿼리는 [`metrics.sql`](metrics.sql).
+측정 기간: **출시일부터 2주 (KST)**. 출시일이 정해지면 `metrics.sql`의 기간을 바꿔서 실행한다. 집계 쿼리는 [`metrics.sql`](metrics.sql).
 
-| 지표 | 정의 | 목표(초안) |
+| 지표 | 정의 | 목표 |
 |---|---|---|
 | 회원가입 완료율 | `/signup` 방문자 대비 `signup_completed` | 50% |
 | 첫 타이머 사용률 | 가입자 중 24시간 안에 `timer_started` | 60% |
-| 타이머 재사용률 | 타이머를 완료한 사용자 중 7일 안에 2회 이상 완료 | 40% |
-| 주간 재방문 | 한 주에 활동한 사용자 중 다음 주에도 이벤트가 있는 비율 | 25% |
+| 타이머 재사용률 | 타이머를 완료한 사용자 중 7일 안에 2회 이상 완료 | 30% |
+| 주간 재방문 | 한 주에 활동한 사용자 중 다음 주에도 이벤트가 있는 비율 | 20% |
 | 기록 작성 비율 | 타이머 완료 사용자 중 독서기록·차 칼럼 작성 | 30% |
-| 메타버스 참여 | 활동 사용자 중 `space_entered` | 20% |
+| 메타버스 참여 | 활동 사용자 중 `space_entered` | 30% |
 | 모임·채팅 참여 | 활동 사용자 중 `group_joined` 또는 `group_message_sent` | 15% |
 | 기기별 흐름 완료율 | 기기별 `timer_started` 대비 `timer_completed` | 데스크톱·모바일 차이 10%p 이내 |
 
 - **회원가입 완료율의 분모(`/signup` 방문)는 지금 기록하지 않는다.** Vercel Web Analytics(무료)의 `/signup` 페이지뷰를 쓰는 것을 제안한다. 새 이벤트를 만들지 않아도 된다.
 - 수치는 첫 출시 기준의 출발점이다. 2주 뒤 실제 값을 보고 다시 정한다.
+- 가입자가 30명 미만이면 달성 여부를 판단하지 않고 참고치로만 본다.
 
 ## 3. RLS 점검
 
@@ -112,6 +113,10 @@
 - [ ] Storage: 아바타 버킷이 생기면 `avatars/{user_id}/...` 경로만 쓰기 허용, 이미지 형식·용량 제한 (6.4)
 - [ ] Vercel 환경변수: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`를 Production·Preview 둘 다
 - [ ] 무료 플랜 일시 정지 모니터링 담당 정하기
+- [ ] 프로덕션 Supabase 프로젝트를 **서울 리전(`ap-northeast-2`)**으로 만들기. 개인정보처리방침에 이 리전으로 표시된다 (`lib/legal.ts`의 `dataRegion`)
+- [ ] 실제 출시일로 맞추기: `lib/legal.ts`의 `effectiveDate`(약관·개인정보처리방침 시행일), `metrics.sql`의 측정 기간(출시일부터 2주)
+- [ ] Vercel Web Analytics 켜기 (회원가입 완료율의 `/signup` 방문 수에 필요). 개인정보처리방침이 분석 쿠키가 없다는 전제로 쓰여 있으니 켜기 전에 방침 내용을 함께 점검한다 ([기록](../woong/landing-legal-progress.md))
+- [ ] 실기기(iOS Safari, Android Chrome)에서 채팅 키보드가 입력창을 가리는지 확인 (태일)
 
 ## 9. 웅싯 기능 교차 테스트 (2026-11-08 오후)
 
