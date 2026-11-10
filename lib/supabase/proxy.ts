@@ -70,7 +70,11 @@ export async function updateSession(request: NextRequest) {
   }
 
   const pathname = request.nextUrl.pathname;
-  if (!userId && isProtectedPath(pathname)) {
+  // 서버 함수 요청(저장 등)은 함수 안의 requireUser가 로그인으로 보낸다.
+  // 여기서 로그인 화면 HTML을 돌려주면 화면이 오류로 바뀐다.
+  const isServerAction =
+    request.method === "POST" && request.headers.has("next-action");
+  if (!userId && isProtectedPath(pathname) && !isServerAction) {
     return preserveSession(response, loginResponse(request));
   }
   if (

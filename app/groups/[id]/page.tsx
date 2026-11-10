@@ -89,7 +89,7 @@ async function GroupDetail({ params }: { params: Promise<{ id: string }> }) {
     <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
       <TrackView name="group_viewed" props={{ group_id: group.id }} />
 
-      <Card className="flex flex-col gap-5 p-5 md:p-8">
+      <Card className="flex min-w-0 flex-col gap-5 p-5 md:p-8">
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="matcha">모임</Badge>
           {isOwner ? (
@@ -100,7 +100,7 @@ async function GroupDetail({ params }: { params: Promise<{ id: string }> }) {
             isMember && <Badge>참여 중</Badge>
           )}
         </div>
-        <h1 className="text-2xl font-bold break-words md:text-4xl">
+        <h1 className="text-2xl font-bold [overflow-wrap:anywhere] md:text-4xl">
           {group.name}
         </h1>
         <p className="leading-relaxed break-words whitespace-pre-wrap text-ink-muted">
@@ -146,7 +146,7 @@ async function GroupDetail({ params }: { params: Promise<{ id: string }> }) {
         </div>
       </Card>
 
-      <Card className="flex flex-col gap-3">
+      <Card className="flex min-w-0 flex-col gap-3">
         <h2 className="text-lg font-bold">
           멤버 <span className="font-mono">{members.length}</span>명
         </h2>

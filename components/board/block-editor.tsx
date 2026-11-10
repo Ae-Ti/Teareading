@@ -13,6 +13,40 @@ type EditorBlock =
 const MAX_BYTES = 5 * 1024 * 1024;
 const TYPES = ["image/jpeg", "image/png", "image/webp"];
 
+// 배포 환경의 요청 크기 제한(약 4.5MB)에 걸리지 않게, 올리기 전에 브라우저에서 줄인다.
+// 서버는 받은 사진을 다시 인코딩한다 (lib/profile/image.ts).
+const SHRINK_EDGE = 1600;
+const SHRINK_OVER = 3 * 1024 * 1024;
+async function shrinkImage(file: File): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(
+      1,
+      SHRINK_EDGE / Math.max(bitmap.width, bitmap.height),
+    );
+    if (scale === 1 && file.size <= SHRINK_OVER) {
+      bitmap.close();
+      return file;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas
+      .getContext("2d")!
+      .drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/webp", 0.9),
+    );
+    if (!blob || blob.type !== "image/webp" || blob.size >= file.size)
+      return file;
+    return new File([blob], "photo.webp", { type: "image/webp" });
+  } catch {
+    // 브라우저가 읽지 못하는 사진은 그대로 보내고 서버 검사에 맡긴다
+    return file;
+  }
+}
+
 let seq = 0;
 const newKey = () => `block-${++seq}`;
 const textBlock = (text = ""): EditorBlock => ({
@@ -157,7 +191,7 @@ export function BlockEditor({
     // 서버 액션은 한 번에 하나씩 처리되므로 차례로 올린다
     for (const [i, file] of files.entries()) {
       const form = new FormData();
-      form.set("image", file);
+      form.set("image", await shrinkImage(file));
       let url: string | undefined;
       try {
         const res = await uploadPostImage(form);

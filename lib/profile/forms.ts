@@ -1,3 +1,4 @@
+import { hasHiddenChars, hasVisibleText } from "@/lib/text";
 import type { Tables } from "@/types/database";
 
 export const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -35,6 +36,8 @@ export function validateProfile(form: FormData) {
   const errors: NonNullable<ProfileState["errors"]> = {};
   if ([...nickname].length < 2 || [...nickname].length > 20) {
     errors.nickname = "닉네임은 2~20자로 입력해 주세요.";
+  } else if (!hasVisibleText(nickname) || hasHiddenChars(nickname)) {
+    errors.nickname = "닉네임에 쓸 수 없는 글자가 있어요.";
   }
   if ([...bio].length > 100) errors.bio = "소개는 100자 이내로 입력해 주세요.";
   if (avatar) {

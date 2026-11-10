@@ -40,10 +40,9 @@ const chars = (v: string) => [...v].length;
 
 // 보이지 않는 문자(전각 공백, 한글 채움 문자, 폭 없는 문자 등)만 있는 입력을 막는다.
 // DB의 has_visible_text와 같은 기준이다.
-const INVISIBLE =
-  /[\s\u00A0\u00AD\u115F\u1160\u1680\u180E\u2000-\u200F\u2028-\u202F\u205F-\u2064\u3000\u3164\uFEFF\uFFA0]/g;
-export const hasVisibleText = (v: string) =>
-  v.replace(INVISIBLE, "").length > 0;
+import { hasVisibleText } from "@/lib/text";
+
+export { hasVisibleText };
 
 // ── 입력 검사 (DB 제약과 같은 기준) ──
 // 글 내용 블록: 글과 사진을 쓰는 순서대로 저장한다. 사진이 없는 글은 content 없이 body만 쓴다.

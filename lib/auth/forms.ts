@@ -1,3 +1,5 @@
+import { hasHiddenChars, hasVisibleText } from "@/lib/text";
+
 export type AuthMode = "login" | "signup";
 export type AuthField =
   | "email"
@@ -60,6 +62,11 @@ export function validateAuthForm(mode: AuthMode, form: FormData) {
     const nicknameLength = [...values.nickname].length;
     if (nicknameLength < 2 || nicknameLength > 20) {
       errors.nickname = "닉네임은 2~20자로 입력해 주세요.";
+    } else if (
+      !hasVisibleText(values.nickname) ||
+      hasHiddenChars(values.nickname)
+    ) {
+      errors.nickname = "닉네임에 쓸 수 없는 글자가 있어요.";
     }
     if (password !== textField(form, "passwordConfirmation")) {
       errors.passwordConfirmation = "비밀번호가 일치하지 않아요.";
