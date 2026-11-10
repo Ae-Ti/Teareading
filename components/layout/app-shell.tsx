@@ -3,12 +3,26 @@ import { Suspense } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { RequestCenter } from "@/components/social/request-center";
 import { getUser } from "@/lib/supabase/user";
-import { NavDesktop, NavMobile, NavTabs } from "./app-nav";
+import { NavDesktop, NavTabs } from "./app-nav";
+import { ProfileMenu } from "./profile-menu";
 
-// 로그인 상태에서만 로그아웃 버튼을 보여 준다. 세션을 읽으므로 Suspense 안에서 렌더한다.
-async function NavLogout() {
-  const { userId } = await getUser();
-  return userId ? <LogoutButton variant="nav" /> : null;
+// 로그인 상태에서만 내 메뉴와 로그아웃 버튼을 보여 준다. 세션을 읽으므로 Suspense 안에서 렌더한다.
+async function NavAccount() {
+  const { supabase, userId } = await getUser();
+  if (!userId) return null;
+  const { data } = await supabase
+    .from("profiles")
+    .select("nickname, avatar_url")
+    .eq("id", userId)
+    .maybeSingle();
+  return (
+    <>
+      {data && (
+        <ProfileMenu nickname={data.nickname} avatarUrl={data.avatar_url} />
+      )}
+      <LogoutButton variant="nav" />
+    </>
+  );
 }
 
 // 로그인 상태면 어느 화면에서든 수락/거절 창을 받는다
@@ -37,14 +51,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <NavDesktop />
             </Suspense>
           </div>
-          <div className="ml-auto flex items-center gap-1 md:hidden">
-            <Suspense fallback={<NavMobile fallback />}>
-              <NavMobile />
-            </Suspense>
-          </div>
-          <div className="md:ml-auto">
+          <div className="ml-auto flex items-center gap-1">
             <Suspense fallback={null}>
-              <NavLogout />
+              <NavAccount />
             </Suspense>
           </div>
         </nav>

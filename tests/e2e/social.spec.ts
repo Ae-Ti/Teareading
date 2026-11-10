@@ -121,6 +121,69 @@ test("내 프로필: 이름, 카드 안 버튼, 내가 쓴 글·댓글, 공개 �
   );
 });
 
+test("상단 내 메뉴와 개인 설정, 대시보드 캐릭터", async ({ page }, info) => {
+  const nickname = await register(page, "메뉴");
+  await expect(
+    page.getByRole("navigation", { name: "전체 메뉴" }).getByRole("link", {
+      name: "가이드",
+    }),
+  ).toHaveCount(0);
+
+  const open = async () => {
+    await page.getByRole("button", { name: `${nickname} 메뉴` }).click();
+    return page.getByRole("menu", { name: "내 메뉴" });
+  };
+  const menu = await open();
+  await expect(menu.getByRole("menuitem")).toHaveText([
+    "프로필 정보",
+    "개인 설정",
+    "내 서재",
+    "내 차칼럼",
+  ]);
+  await menu.getByRole("menuitem", { name: "개인 설정" }).click();
+  await expect(page).toHaveURL("/mypage/settings");
+  await expect(menu).toBeHidden();
+  await expect(
+    page.getByRole("heading", { name: "프로필 공개 범위" }),
+  ).toBeVisible();
+
+  for (const [label, url] of [
+    ["내 서재", "/me/reading"],
+    ["내 차칼럼", "/me/columns"],
+    ["프로필 정보", "/mypage"],
+  ]) {
+    await (await open()).getByRole("menuitem", { name: label }).click();
+    await expect(page).toHaveURL(url);
+  }
+
+  // 닉네임을 바꾸면 상단 버튼도 바뀐다
+  const renamed = `바뀐${Date.now() % 100000}`;
+  await page.goto("/mypage/edit");
+  await page.getByLabel("닉네임", { exact: true }).fill(renamed);
+  await page.getByRole("button", { name: "프로필 저장", exact: true }).click();
+  await expect(page.locator("form:visible").getByRole("status")).toContainText(
+    "프로필을 저장했어요.",
+  );
+  await expect(
+    page.getByRole("button", { name: `${renamed} 메뉴` }),
+  ).toBeVisible();
+
+  // 대시보드: 컴퓨터 화면에서만 캐릭터 카드가 보인다
+  await page.goto("/dashboard");
+  const character = page.getByRole("img", { name: "내 찻집 캐릭터" });
+  if (info.project.name === "desktop") {
+    await expect(character).toBeVisible();
+    const timer = await page.getByRole("radio", { name: /독서/ }).boundingBox();
+    const week = await page
+      .getByRole("heading", { name: "이번 주 출석" })
+      .boundingBox();
+    expect(week!.y).toBeGreaterThan(timer!.y);
+    expect(week!.x).toBeLessThan((await character.boundingBox())!.x);
+  } else {
+    await expect(character).toBeHidden();
+  }
+});
+
 test("친구: 신청 → 가운데 팝업 수락 → 친구 수·목록·접속 중 표시", async ({
   page,
   browser,
