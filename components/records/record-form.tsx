@@ -19,12 +19,18 @@ import { detectDevice } from "@/lib/track";
 export function RecordForm({
   kind,
   id = null,
-  initial = { title: "", body: "", pages: "", teaType: "" },
+  initial = { title: "", body: "", pages: "", teaType: "", isPublic: false },
   book,
 }: {
   kind: RecordKind;
   id?: string | null;
-  initial?: { title: string; body: string; pages?: string; teaType?: string };
+  initial?: {
+    title: string;
+    body: string;
+    pages?: string;
+    teaType?: string;
+    isPublic?: boolean;
+  };
   // 독서록은 서재의 책에 달린다
   book?: { id: string; title: string; author?: string | null };
 }) {
@@ -41,11 +47,15 @@ export function RecordForm({
   const [body, setBody] = useState(initial.body);
   const [pages, setPages] = useState(initial.pages ?? "");
   const [teaType, setTeaType] = useState(initial.teaType ?? "");
+  const [isPublic, setIsPublic] = useState(
+    state.values?.isPublic ?? initial.isPublic ?? false,
+  );
   const dirty =
     title !== initial.title ||
     body !== initial.body ||
     pages !== (initial.pages ?? "") ||
-    teaType !== (initial.teaType ?? "");
+    teaType !== (initial.teaType ?? "") ||
+    isPublic !== (initial.isPublic ?? false);
 
   // 저장하지 않은 내용이 있으면 페이지를 떠나기 전에 경고
   useEffect(() => {
@@ -143,6 +153,35 @@ export function RecordForm({
         error={state.errors?.body}
         hint={`${body.length.toLocaleString()} / ${BODY_MAX.toLocaleString()}자`}
       />
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="mb-1.5 text-sm font-bold">공개 범위</legend>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { value: false, label: "비공개" },
+            { value: true, label: "공개" },
+          ].map((option) => (
+            <label
+              key={option.label}
+              className="cursor-pointer rounded-md border-2 border-ink px-3 py-1.5 text-sm font-bold has-checked:bg-matcha has-focus-visible:outline-3 has-focus-visible:outline-yuja"
+            >
+              <input
+                type="radio"
+                name="visibility"
+                value={option.value ? "public" : "private"}
+                checked={isPublic === option.value}
+                onChange={() => setIsPublic(option.value)}
+                className="sr-only"
+              />
+              {option.label}
+            </label>
+          ))}
+        </div>
+        <p className="text-sm text-ink-muted">
+          {isPublic
+            ? "내 프로필이 공개일 때 다른 회원이 공개 프로필에서 읽을 수 있어요."
+            : "나만 볼 수 있어요."}
+        </p>
+      </fieldset>
       {state.errors?.form && (
         <p
           role="alert"

@@ -159,7 +159,7 @@ test("프로필 수정·2MB 이하 이미지·삭제·중복 제출 방지·오�
   ).toBeVisible();
 });
 
-test("공개 프로필은 참여 모임만 표시하고 이메일·개인 기록을 응답에 포함하지 않는다", async ({
+test("공개 프로필은 모임·완독 책·차 칼럼을 보여 주고 이메일·독서기록은 응답에 포함하지 않는다", async ({
   page,
   context,
   browser,
@@ -174,11 +174,24 @@ test("공개 프로필은 참여 모임만 표시하고 이메일·개인 기록
         .insert({ user_id: id, book_title: "비공개 독서", body: secret })
     ).error,
   ).toBeNull();
+  const columnBody = `차 칼럼 본문 ${randomUUID()}`;
+  const column = await client
+    .from("tea_columns")
+    .insert({
+      user_id: id,
+      title: "공개되는 차 칼럼",
+      body: columnBody,
+      is_public: true,
+    })
+    .select("id")
+    .single();
+  expect(column.error).toBeNull();
   expect(
     (
-      await client
-        .from("tea_columns")
-        .insert({ user_id: id, title: "비공개 차 칼럼", body: secret })
+      await client.from("books").insert([
+        { user_id: id, title: "다 읽은 공개 책", status: "done" },
+        { user_id: id, title: "읽는 중인 비공개 책", status: "reading" },
+      ])
     ).error,
   ).toBeNull();
   const groupName = `함께 읽기 ${randomUUID().slice(0, 8)}`;
@@ -207,6 +220,15 @@ test("공개 프로필은 참여 모임만 표시하고 이메일·개인 기록
     const body = await response!.text();
     expect(body).not.toContain(account.email);
     expect(body).not.toContain(secret);
+    expect(body).not.toContain("읽는 중인 비공개 책");
+    // 활동 통계 아래에 완독한 책과 차 칼럼이 나오고, 칼럼은 끝까지 읽을 수 있다
+    await expect(visitor.getByText("다 읽은 공개 책")).toBeVisible();
+    await visitor.getByRole("link", { name: /공개되는 차 칼럼/ }).click();
+    await expect(visitor).toHaveURL(`/u/${id}/columns/${column.data!.id}`);
+    await expect(visitor.getByRole("article")).toContainText(columnBody);
+    await visitor.goto(`/u/${randomUUID()}/columns/${column.data!.id}`);
+    await expect(visitor.getByText("칼럼을 찾을 수 없어요")).toBeVisible();
+    await visitor.goto(`/u/${id}`);
     // 다른 회원의 프로필에는 DM 시작 버튼이 있다 (DM 흐름은 dm.spec.ts에서 검증)
     await expect(
       visitor.getByRole("button", { name: "메시지 보내기", exact: true }),

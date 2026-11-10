@@ -69,15 +69,16 @@ async function RecordList({ kind }: { kind: RecordKind }) {
           <Link href={`${config.path}/${r.id}`} className="block">
             <Card className="flex h-full flex-col gap-2 p-4 shadow-hard-sm transition hover:-translate-y-px hover:shadow-hard">
               <h2 className="truncate text-lg font-bold">{r.title}</h2>
-              {(r.tea_type || r.pages_read) && (
-                <div>
+              <div className="flex flex-wrap gap-1.5">
+                <Badge>{r.is_public ? "공개" : "비공개"}</Badge>
+                {(r.tea_type || r.pages_read) && (
                   <Badge>
                     {r.tea_type
                       ? TEA_TYPES[r.tea_type]
                       : `${r.pages_read!.toLocaleString()}쪽`}
                   </Badge>
-                </div>
-              )}
+                )}
+              </div>
               <p className="line-clamp-2 text-sm text-ink-muted">{r.body}</p>
               <p className="mt-auto text-xs text-ink-subtle">
                 {formatKoreanDate(r.created_at)}

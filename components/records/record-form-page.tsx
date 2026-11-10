@@ -136,6 +136,7 @@ async function EditForm({
         body: row.body,
         pages: row.pages_read?.toString() ?? "",
         teaType: row.tea_type ?? "",
+        isPublic: row.is_public,
       }}
     />
   );

@@ -22,6 +22,7 @@ const original: EditableProfile = {
   bio: "기존 소개",
   avatar_url: `${base}/storage/v1/object/public/avatars/${oldPath}`,
   created_at: "2026-11-01T00:00:00+00:00",
+  is_public: true,
   updated_at: "2026-11-07T00:00:00+00:00",
 };
 

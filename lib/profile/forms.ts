@@ -2,10 +2,11 @@ import type { Tables } from "@/types/database";
 
 export const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 export const AVATAR_INPUT_TYPES = ["image/jpeg", "image/png", "image/webp"];
-export const PUBLIC_PROFILE_FIELDS = "id,nickname,bio,avatar_url,created_at";
+export const PUBLIC_PROFILE_FIELDS =
+  "id,nickname,bio,avatar_url,created_at,is_public";
 export type PublicProfile = Pick<
   Tables<"profiles">,
-  "id" | "nickname" | "bio" | "avatar_url" | "created_at"
+  "id" | "nickname" | "bio" | "avatar_url" | "created_at" | "is_public"
 >;
 export type EditableProfile = PublicProfile & { updated_at: string };
 export type ProfileState = {
