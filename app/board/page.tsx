@@ -5,6 +5,7 @@ import { AuthorChip } from "@/components/board/author-chip";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
 import { LinkButton } from "@/components/ui/link-button";
+import { Pagination } from "@/components/ui/pagination";
 import { LoadingBlock, StateMessage } from "@/components/ui/state";
 import {
   boardHref,
@@ -215,7 +216,13 @@ async function Board({
         </div>
       )}
 
-      {pages > 1 && <Pagination query={query} pages={pages} />}
+      {pages > 1 && (
+        <Pagination
+          page={query.page}
+          pages={pages}
+          hrefFor={(page) => boardHref(query, { page })}
+        />
+      )}
     </>
   );
 }
@@ -263,76 +270,5 @@ function SearchForm({ query }: { query: BoardQuery }) {
         검색
       </button>
     </Form>
-  );
-}
-
-// 페이지 번호: 현재 기준 앞뒤 2쪽 + 처음·끝
-function Pagination({ query, pages }: { query: BoardQuery; pages: number }) {
-  const current = Math.min(query.page, pages);
-  const start = Math.max(1, current - 2);
-  const end = Math.min(pages, current + 2);
-  const nums = Array.from({ length: end - start + 1 }, (_, i) => start + i);
-  const item =
-    "flex h-9 min-w-9 items-center justify-center rounded-md border-2 px-2 text-sm font-bold";
-  return (
-    <nav aria-label="페이지" className="flex flex-wrap justify-center gap-1.5">
-      {current > 1 && (
-        <Link
-          href={boardHref(query, { page: current - 1 })}
-          className={cn(item, "border-ink bg-surface")}
-          aria-label="이전 페이지"
-        >
-          ‹
-        </Link>
-      )}
-      {start > 1 && (
-        <>
-          <Link
-            href={boardHref(query, { page: 1 })}
-            className={cn(item, "border-transparent")}
-          >
-            1
-          </Link>
-          {start > 2 && <span className="self-center text-ink-subtle">…</span>}
-        </>
-      )}
-      {nums.map((n) => (
-        <Link
-          key={n}
-          href={boardHref(query, { page: n })}
-          aria-current={n === current ? "page" : undefined}
-          className={cn(
-            item,
-            n === current
-              ? "border-ink bg-matcha"
-              : "border-transparent hover:bg-sunken",
-          )}
-        >
-          {n}
-        </Link>
-      ))}
-      {end < pages && (
-        <>
-          {end < pages - 1 && (
-            <span className="self-center text-ink-subtle">…</span>
-          )}
-          <Link
-            href={boardHref(query, { page: pages })}
-            className={cn(item, "border-transparent")}
-          >
-            {pages}
-          </Link>
-        </>
-      )}
-      {current < pages && (
-        <Link
-          href={boardHref(query, { page: current + 1 })}
-          className={cn(item, "border-ink bg-surface")}
-          aria-label="다음 페이지"
-        >
-          ›
-        </Link>
-      )}
-    </nav>
   );
 }

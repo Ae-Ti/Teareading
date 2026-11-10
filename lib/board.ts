@@ -30,7 +30,7 @@ export const FIELDS = {
 } as const;
 export type Field = keyof typeof FIELDS;
 
-export const PAGE_SIZE = 20;
+export const PAGE_SIZE = 15;
 export const TITLE_MIN = 2;
 export const TITLE_MAX = 100;
 export const BODY_MAX = 10000;
