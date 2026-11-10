@@ -110,6 +110,11 @@ async function PublicProfile({ params }: PageProps<"/u/[id]">) {
           ) : (
             <>
               <StartDmButton userId={id} />
+              {relation?.relation === "friend" && (
+                <LinkButton variant="secondary" href={`/space/room/${id}`}>
+                  방 구경하기
+                </LinkButton>
+              )}
               {relation && (
                 <FriendButton
                   me={userId}

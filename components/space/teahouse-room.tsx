@@ -468,7 +468,7 @@ export function TeahouseRoom({
   }, [me.user_id, groupOf]);
 
   // 공용 공간의 채널 연결은 입장 전부터 한다 (지금 누가 있는지 보여주기 위해). 입장 = track, 퇴장 = untrack.
-  // 내 방은 나만 들어오는 공간이라 채널을 열지 않는다. 그래서 다른 사람이 들어올 경로 자체가 없다.
+  // 내 방은 채널을 열지 않는다. 친구의 구경은 별도 화면(room-visit)이고 실시간 전달이 없다.
   useEffect(() => {
     if (!MAPS[mapId].shared) return;
     const supabase = createClient();
@@ -766,7 +766,7 @@ export function TeahouseRoom({
               : `지금 ${others.length}명이 머물고 있어요`)}
           {inside &&
             (!map.shared
-              ? "내 방 · 나만 들어올 수 있어요 🔒"
+              ? "내 방 · 친구만 구경할 수 있어요"
               : others.length === 0
                 ? "혼자 있어요 🍵"
                 : `${others.length}명과 함께 있어요 🍵`)}

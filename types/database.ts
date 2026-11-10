@@ -1137,6 +1137,7 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      friend_room: { Args: { p_owner: string }; Returns: Json };
       friends_of: {
         Args: { p_user_id: string };
         Returns: {
