@@ -5,8 +5,8 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   experimental: {
-    // 2MB 아바타와 multipart 필드·경계 오버헤드를 수용한다.
-    serverActions: { bodySizeLimit: "3mb" },
+    // 5MB 글 사진과 multipart 필드·경계 오버헤드를 수용한다.
+    serverActions: { bodySizeLimit: "6mb" },
   },
   turbopack: {
     rules: {

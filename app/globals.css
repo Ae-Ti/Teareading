@@ -188,6 +188,13 @@ body {
   white-space: normal;
   overflow-wrap: anywhere;
 }
+.space-label-group {
+  border: 1.5px solid var(--tr-ink);
+  border-radius: 3px;
+  background: var(--tr-hongcha);
+  color: var(--tr-ink);
+  padding: 0 4px;
+}
 .space-label-place {
   border: 1.5px solid var(--tr-ink);
   border-radius: 3px;

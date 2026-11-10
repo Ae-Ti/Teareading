@@ -155,6 +155,40 @@ export type Database = {
           },
         ];
       };
+      comment_likes: {
+        Row: {
+          comment_id: string;
+          created_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          comment_id: string;
+          created_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          comment_id?: string;
+          created_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "comment_likes_comment_id_fkey";
+            columns: ["comment_id"];
+            isOneToOne: false;
+            referencedRelation: "post_comments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "comment_likes_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       dm_messages: {
         Row: {
           body: string;
@@ -262,6 +296,40 @@ export type Database = {
           user_id?: string | null;
         };
         Relationships: [];
+      };
+      friendships: {
+        Row: {
+          created_at: string;
+          user_a: string;
+          user_b: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          user_a: string;
+          user_b: string;
+        };
+        Update: {
+          created_at?: string;
+          user_a?: string;
+          user_b?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "friendships_user_a_fkey";
+            columns: ["user_a"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "friendships_user_b_fkey";
+            columns: ["user_b"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       group_bans: {
         Row: {
@@ -448,6 +516,7 @@ export type Database = {
         Row: {
           created_at: string;
           description: string;
+          from_space: boolean;
           id: string;
           name: string;
           owner_id: string;
@@ -457,6 +526,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           description?: string;
+          from_space?: boolean;
           id?: string;
           name: string;
           owner_id?: string;
@@ -465,6 +535,7 @@ export type Database = {
         Update: {
           created_at?: string;
           description?: string;
+          from_space?: boolean;
           id?: string;
           name?: string;
           owner_id?: string;
@@ -480,12 +551,69 @@ export type Database = {
           },
         ];
       };
+      live_requests: {
+        Row: {
+          created_at: string;
+          expires_at: string | null;
+          from_user: string;
+          id: string;
+          kind: string;
+          payload: NonNullable<Json>;
+          responded_at: string | null;
+          result: Json | null;
+          status: string;
+          to_user: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          expires_at?: string | null;
+          from_user: string;
+          id?: string;
+          kind: string;
+          payload?: NonNullable<Json>;
+          responded_at?: string | null;
+          result?: Json | null;
+          status?: string;
+          to_user: string;
+        };
+        Update: {
+          created_at?: string;
+          expires_at?: string | null;
+          from_user?: string;
+          id?: string;
+          kind?: string;
+          payload?: NonNullable<Json>;
+          responded_at?: string | null;
+          result?: Json | null;
+          status?: string;
+          to_user?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "live_requests_from_user_fkey";
+            columns: ["from_user"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "live_requests_to_user_fkey";
+            columns: ["to_user"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       post_comments: {
         Row: {
           author_id: string;
           body: string;
           created_at: string;
           id: string;
+          like_count: number;
+          parent_id: string | null;
           post_id: string;
           updated_at: string;
         };
@@ -495,6 +623,8 @@ export type Database = {
           body: string;
           created_at?: string;
           id?: string;
+          like_count?: number;
+          parent_id?: string | null;
           post_id: string;
           updated_at?: string;
         };
@@ -503,6 +633,8 @@ export type Database = {
           body?: string;
           created_at?: string;
           id?: string;
+          like_count?: number;
+          parent_id?: string | null;
           post_id?: string;
           updated_at?: string;
         };
@@ -512,6 +644,13 @@ export type Database = {
             columns: ["author_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "post_comments_parent_id_fkey";
+            columns: ["parent_id"];
+            isOneToOne: false;
+            referencedRelation: "post_comments";
             referencedColumns: ["id"];
           },
           {
@@ -597,6 +736,7 @@ export type Database = {
           body: string;
           category: string;
           comment_count: number;
+          content: Json | null;
           created_at: string;
           id: string;
           like_count: number;
@@ -610,6 +750,7 @@ export type Database = {
           body: string;
           category?: string;
           comment_count?: number;
+          content?: Json | null;
           created_at?: string;
           id?: string;
           like_count?: number;
@@ -622,6 +763,7 @@ export type Database = {
           body?: string;
           category?: string;
           comment_count?: number;
+          content?: Json | null;
           created_at?: string;
           id?: string;
           like_count?: number;
@@ -887,6 +1029,30 @@ export type Database = {
           },
         ];
       };
+      user_heartbeats: {
+        Row: {
+          last_seen_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          last_seen_at?: string;
+          user_id: string;
+        };
+        Update: {
+          last_seen_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_heartbeats_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       attendance_days: {
@@ -913,6 +1079,10 @@ export type Database = {
       can_access_chat: {
         Args: { p_kind: string; p_room_id: string };
         Returns: boolean;
+      };
+      create_live_request: {
+        Args: { p_kind: string; p_payload?: Json; p_to: string };
+        Returns: Json;
       };
       delete_group_message: {
         Args: { p_message_id: string };
@@ -957,6 +1127,14 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      friends_of: {
+        Args: { p_user_id: string };
+        Returns: {
+          avatar_url: string;
+          id: string;
+          nickname: string;
+        }[];
       };
       has_visible_text: { Args: { p_value: string }; Returns: boolean };
       is_blocked_between: {
@@ -1034,6 +1212,32 @@ export type Database = {
         }[];
       };
       my_group_role: { Args: { p_group_id: string }; Returns: string };
+      my_online_friends: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          activity: string;
+          avatar_url: string;
+          id: string;
+          nickname: string;
+          reading_seconds: number;
+          tea_seconds: number;
+        }[];
+      };
+      my_pending_requests: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          created_at: string;
+          from_nickname: string;
+          from_user: string;
+          id: string;
+          kind: string;
+          payload: Json;
+        }[];
+      };
+      my_post_image_count: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
       my_record_stats: { Args: Record<PropertyKey, never>; Returns: Json };
       my_unread_total: { Args: Record<PropertyKey, never>; Returns: number };
       pause_timer: {
@@ -1058,6 +1262,10 @@ export type Database = {
       };
       public_profile_stats: { Args: { p_user_id: string }; Returns: Json };
       record_post_view: { Args: { p_post_id: string }; Returns: boolean };
+      respond_live_request: {
+        Args: { p_accept: boolean; p_id: string };
+        Returns: Json;
+      };
       resume_timer: {
         Args: { p_id: string };
         Returns: {
@@ -1120,6 +1328,7 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      touch_presence: { Args: Record<PropertyKey, never>; Returns: undefined };
     };
     Enums: {
       [_ in never]: never;

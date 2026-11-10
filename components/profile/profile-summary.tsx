@@ -9,15 +9,23 @@ import { formatDuration, formatKoreanDate } from "@/lib/time";
 export function ProfileSummary({
   profile,
   email,
+  as: Heading = "h2",
+  friends,
+  children,
 }: {
   profile: PublicProfile;
   email?: string;
+  as?: "h1" | "h2";
+  friends?: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
     <Card className="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
       <ProfileAvatar nickname={profile.nickname} src={profile.avatar_url} />
       <div className="min-w-0 flex-1 space-y-2">
-        <h2 className="break-words text-2xl font-bold">{profile.nickname}</h2>
+        <Heading className="break-words text-2xl font-bold">
+          {profile.nickname}
+        </Heading>
         <p className="whitespace-pre-wrap break-words text-ink-muted">
           {profile.bio || "아직 소개를 작성하지 않았어요."}
         </p>
@@ -28,6 +36,10 @@ export function ProfileSummary({
           <p className="break-all text-sm">
             <span className="font-bold">계정 이메일</span> · {email}
           </p>
+        )}
+        {friends}
+        {children && (
+          <div className="flex flex-wrap gap-2 pt-1">{children}</div>
         )}
       </div>
     </Card>

@@ -28,6 +28,7 @@ type Entity = {
   steps: number;
   isMe: boolean;
   label: HTMLDivElement;
+  groupLabel: HTMLSpanElement | null; // 발 아래 모임 이름
   name: string;
   status: string;
   message: string | null;
@@ -36,6 +37,7 @@ type Entity = {
 export type SceneEvents = {
   onTap: (tile: Point) => void;
   onArrive: (tile: Point, dir: Dir) => void;
+  onPlayer: (id: string, at: Point) => void; // 다른 사람 캐릭터를 눌렀을 때 (at: 화면 좌표)
 };
 
 export class TeahouseScene {
@@ -78,7 +80,10 @@ export class TeahouseScene {
     cancelAnimationFrame(this.raf);
     this.resize.disconnect();
     this.canvas.removeEventListener("pointerdown", this.handlePointer);
-    for (const e of this.entities.values()) e.label.remove();
+    for (const e of this.entities.values()) {
+      e.label.remove();
+      e.groupLabel?.remove();
+    }
     this.entities.clear();
     for (const p of this.places) p.el.remove();
   }
@@ -162,6 +167,7 @@ export class TeahouseScene {
         steps: 0,
         isMe: opts.isMe ?? false,
         label,
+        groupLabel: null,
         name: "",
         status: "",
         message: null,
@@ -196,6 +202,23 @@ export class TeahouseScene {
     this.drawLabel(e);
   }
 
+  // 찻집에서 맺은 모임 이름을 캐릭터 아래에 보여 준다
+  setGroup(id: string, name: string | null) {
+    const e = this.entities.get(id);
+    if (!e) return;
+    if (!name) {
+      e.groupLabel?.remove();
+      e.groupLabel = null;
+      return;
+    }
+    if (!e.groupLabel) {
+      e.groupLabel = document.createElement("span");
+      e.groupLabel.className = "space-label space-label-group";
+      this.overlay.appendChild(e.groupLabel);
+    }
+    e.groupLabel.textContent = name;
+  }
+
   private drawLabel(e: Entity) {
     e.label.replaceChildren();
     if (e.message) {
@@ -222,6 +245,7 @@ export class TeahouseScene {
     const e = this.entities.get(id);
     if (!e) return;
     e.label.remove();
+    e.groupLabel?.remove();
     this.entities.delete(id);
   }
 
@@ -303,6 +327,23 @@ export class TeahouseScene {
       (ev.clientX - rect.left - this.offset.x) / this.scale + this.cam.x;
     const wy =
       (ev.clientY - rect.top - this.offset.y) / this.scale + this.cam.y;
+    // 앞에 그려진 캐릭터부터 확인한다
+    const hit = [...this.entities.values()]
+      .filter((e) => !e.isMe)
+      .map((e) => ({ e, p: this.pos(e) }))
+      .sort((a, b) => b.p.y - a.p.y)
+      .find(({ p }) => {
+        const sx = p.x + (TILE - CHAR_W) / 2;
+        const sy = p.y + TILE - CHAR_H - 2;
+        return wx >= sx && wx < sx + CHAR_W && wy >= sy && wy < sy + CHAR_H;
+      });
+    if (hit) {
+      this.events.onPlayer(hit.e.id, {
+        x: ev.clientX - rect.left,
+        y: ev.clientY - rect.top,
+      });
+      return;
+    }
     const tile = { x: Math.floor(wx / TILE), y: Math.floor(wy / TILE) };
     if (
       tile.x < 0 ||
@@ -475,6 +516,10 @@ export class TeahouseScene {
         this.offset.y +
         (p.y + TILE - CHAR_H - (e.sitting ? 0 : 2) - this.cam.y) * scale;
       e.label.style.transform = `translate(${Math.round(lx)}px, ${Math.round(ly)}px) translate(-50%, -100%)`;
+      if (e.groupLabel) {
+        const gy = this.offset.y + (p.y + TILE - this.cam.y) * scale;
+        e.groupLabel.style.transform = `translate(${Math.round(lx)}px, ${Math.round(gy)}px) translate(-50%, 0)`;
+      }
     }
   }
 

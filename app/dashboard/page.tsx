@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { WeekAttendance } from "@/components/attendance/week-attendance";
+import { OnlineFriends } from "@/components/social/online-friends";
 import { SpacePeekText } from "@/components/space/space-peek";
 import { TimerPanel } from "@/components/timer/timer-panel";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/link-button";
 import { LoadingBlock, StateMessage } from "@/components/ui/state";
 import { fetchAttendance } from "@/lib/attendance";
-import { guideOfDay } from "@/lib/guide";
+import { CATEGORIES, getHotPost } from "@/lib/board";
 import { recentRecords } from "@/lib/records";
 import { requireUser } from "@/lib/supabase/user";
 import { addDays, formatKoreanDate, kstDate, streak } from "@/lib/time";
@@ -42,17 +43,19 @@ async function Dashboard() {
     }).format(now),
   );
 
-  const [profile, running, attendance, records, guide] = await Promise.all([
-    supabase.from("profiles").select("nickname").eq("id", userId).single(),
-    supabase
-      .from("timer_sessions")
-      .select("*")
-      .eq("status", "running")
-      .maybeSingle(),
-    fetchAttendance(supabase, addDays(today, -366), today),
-    recentRecords(supabase, 2),
-    guideOfDay(today),
-  ]);
+  const [profile, running, attendance, records, hot, online] =
+    await Promise.all([
+      supabase.from("profiles").select("nickname").eq("id", userId).single(),
+      supabase
+        .from("timer_sessions")
+        .select("*")
+        .eq("status", "running")
+        .maybeSingle(),
+      fetchAttendance(supabase, addDays(today, -366), today),
+      recentRecords(supabase, 2),
+      getHotPost(supabase),
+      supabase.rpc("my_online_friends"),
+    ]);
 
   const days = attendance.days ?? [];
   const streakCount = streak(new Set(days.map((d) => d.day)), today);
@@ -97,6 +100,8 @@ async function Dashboard() {
               찻집 입장
             </LinkButton>
           </Card>
+
+          <OnlineFriends initial={online.data ?? []} />
         </div>
       </div>
 
@@ -137,17 +142,22 @@ async function Dashboard() {
           )}
         </section>
 
-        {guide && (
-          <section className="flex flex-col gap-3">
-            <h2 className="text-lg font-bold">오늘의 다도 가이드</h2>
+        <section className="flex flex-col gap-3">
+          <h2 className="text-lg font-bold">오늘의 핫게시물</h2>
+          {hot ? (
             <Card tone="yuja" className="flex flex-col gap-3">
-              <Badge className="self-start">
-                입문 · <span className="font-mono">{guide.minutes}</span>분
-              </Badge>
-              <h3 className="text-xl font-bold">{guide.title}</h3>
-              <p className="text-sm">{guide.summary}</p>
+              <Badge className="self-start">{CATEGORIES[hot.category]}</Badge>
+              <h3 className="line-clamp-2 text-xl font-bold break-words">
+                {hot.title}
+              </h3>
+              <p className="text-sm">
+                {hot.author?.nickname ?? "알 수 없음"} · 추천{" "}
+                <span className="font-mono">{hot.like_count}</span> · 댓글{" "}
+                <span className="font-mono">{hot.comment_count}</span> · 조회{" "}
+                <span className="font-mono">{hot.view_count}</span>
+              </p>
               <LinkButton
-                href={`/guide/${guide.slug}`}
+                href={`/board/${hot.id}`}
                 variant="secondary"
                 size="sm"
                 className="self-start"
@@ -155,8 +165,14 @@ async function Dashboard() {
                 읽어 보기
               </LinkButton>
             </Card>
-          </section>
-        )}
+          ) : (
+            <StateMessage
+              title="아직 올라온 글이 없어요"
+              description="게시판에 첫 글을 남겨 보세요."
+              action={{ href: "/board", label: "게시판으로" }}
+            />
+          )}
+        </section>
       </div>
     </div>
   );

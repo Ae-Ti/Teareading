@@ -4,7 +4,7 @@ import { updatePost } from "@/app/board/actions";
 import { PostForm } from "@/components/board/post-form";
 import { Card } from "@/components/ui/card";
 import { LoadingBlock, StateMessage } from "@/components/ui/state";
-import { getPost } from "@/lib/board";
+import { getPost, readBlocks } from "@/lib/board";
 import { requireUser } from "@/lib/supabase/user";
 
 export const metadata = { title: "글 수정 · 게시판 · 티어리딩" };
@@ -63,6 +63,7 @@ async function EditPost({ params }: { params: Promise<{ id: string }> }) {
             category: post.category,
             title: post.title,
             body: post.body,
+            content: readBlocks(post.content, userId),
           }}
           submitLabel="수정 저장"
           cancelHref={`/board/${id}`}

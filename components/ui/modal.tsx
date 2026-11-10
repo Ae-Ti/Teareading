@@ -10,12 +10,15 @@ export function Modal({
   title,
   children,
   className,
+  center = false,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
   className?: string;
+  // 모바일에서도 시트 대신 화면 가운데에 띄운다
+  center?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -36,11 +39,14 @@ export function Modal({
       aria-labelledby={titleId}
       onClose={onClose}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        // 수락/거절 창은 다른 곳을 누르다가 실수로 닫히지 않게 한다
+        if (!center && e.target === e.currentTarget) onClose();
       }}
       className={cn(
-        "modal-sheet m-0 mt-auto max-h-[85dvh] w-full max-w-none overflow-hidden rounded-t-lg border-2 border-ink bg-surface p-0 text-ink shadow-hard-lg backdrop:bg-ink/40",
-        "md:m-auto md:max-h-[80dvh] md:w-[min(36rem,calc(100%-2rem))] md:rounded-lg",
+        "modal-sheet max-w-none overflow-hidden border-2 border-ink bg-surface p-0 text-ink shadow-hard-lg backdrop:bg-ink/40",
+        center
+          ? "m-auto max-h-[80dvh] w-[min(24rem,calc(100%-2rem))] rounded-lg"
+          : "m-0 mt-auto max-h-[85dvh] w-full rounded-t-lg md:m-auto md:max-h-[80dvh] md:w-[min(36rem,calc(100%-2rem))] md:rounded-lg",
         className,
       )}
     >

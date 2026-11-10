@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { AuthorChip } from "@/components/board/author-chip";
 import { CommentForm, CommentItem } from "@/components/board/comments";
 import { LikeButton } from "@/components/board/like-button";
+import { PostContent } from "@/components/board/post-content";
 import { PostOwnerActions } from "@/components/board/post-owner-actions";
 import { ViewCounter } from "@/components/board/view-counter";
 import { Badge } from "@/components/ui/badge";
@@ -95,9 +96,7 @@ async function PostView({ params }: { params: Promise<{ id: string }> }) {
           </div>
         </header>
 
-        <div className="min-h-32 leading-relaxed break-words whitespace-pre-wrap">
-          {post.body}
-        </div>
+        <PostContent post={post} />
 
         <div className="flex flex-col items-center gap-4 border-t-2 border-dashed border-ink-subtle pt-5">
           <LikeButton
@@ -124,15 +123,38 @@ async function PostView({ params }: { params: Promise<{ id: string }> }) {
             </p>
           ) : (
             <ul className="divide-y-2 divide-sunken">
-              {comments.map((c) => (
-                <CommentItem
-                  key={c.id}
-                  comment={c}
-                  postId={post.id}
-                  mine={c.author_id === userId}
-                  byPostAuthor={c.author_id === post.author_id}
-                />
-              ))}
+              {comments
+                .filter((c) => !c.parent_id)
+                .map((c) => {
+                  const replies = comments.filter((r) => r.parent_id === c.id);
+                  return (
+                    <CommentItem
+                      key={c.id}
+                      comment={c}
+                      postId={post.id}
+                      mine={c.author_id === userId}
+                      byPostAuthor={c.author_id === post.author_id}
+                      hasReplies={replies.length > 0}
+                    >
+                      {replies.length > 0 && (
+                        <ul
+                          aria-label="답글"
+                          className="ml-4 divide-y-2 divide-sunken border-l-2 border-ink-subtle pl-3 md:ml-8 md:pl-4"
+                        >
+                          {replies.map((r) => (
+                            <CommentItem
+                              key={r.id}
+                              comment={r}
+                              postId={post.id}
+                              mine={r.author_id === userId}
+                              byPostAuthor={r.author_id === post.author_id}
+                            />
+                          ))}
+                        </ul>
+                      )}
+                    </CommentItem>
+                  );
+                })}
             </ul>
           )}
           <div className="border-t-2 border-ink pt-4">

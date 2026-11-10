@@ -2,6 +2,7 @@
 
 import {
   useActionState,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -10,14 +11,26 @@ import {
 import {
   addComment,
   deleteComment,
+  setCommentLike,
   updateComment,
   type CommentState,
 } from "@/app/board/actions";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/components/ui/cn";
 import { COMMENT_MAX, formatBoardDateTime, type Comment } from "@/lib/board";
 import { AuthorChip } from "./author-chip";
 
-export function CommentForm({ postId }: { postId: string }) {
+export function CommentForm({
+  postId,
+  parentId,
+  onDone,
+}: {
+  postId: string;
+  parentId?: string;
+  onDone?: () => void;
+}) {
+  const noun = parentId ? "답글" : "댓글";
+  const fieldId = parentId ? `reply-${parentId}` : "comment-body";
   const [state, action, pending] = useActionState<CommentState, FormData>(
     addComment.bind(null, postId),
     { error: null },
@@ -30,21 +43,23 @@ export function CommentForm({ postId }: { postId: string }) {
     if (ok && ok !== lastOk.current) {
       lastOk.current = ok;
       setValue("");
+      onDone?.();
     }
-  }, [ok]);
+  }, [ok, onDone]);
 
   return (
     <form action={action} className="flex flex-col gap-2">
-      <label htmlFor="comment-body" className="sr-only">
-        댓글 입력
+      {parentId && <input type="hidden" name="parent_id" value={parentId} />}
+      <label htmlFor={fieldId} className="sr-only">
+        {noun} 입력
       </label>
       <textarea
-        id="comment-body"
+        id={fieldId}
         name="body"
-        rows={3}
+        rows={parentId ? 2 : 3}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="댓글을 남겨 보세요"
+        placeholder={`${noun}을 남겨 보세요`}
         aria-invalid={state.error ? true : undefined}
         className="w-full resize-y rounded-md border-2 border-ink bg-surface p-3 leading-relaxed placeholder:text-ink-subtle focus:shadow-hard-sm focus:outline-none"
       />
@@ -53,7 +68,7 @@ export function CommentForm({ postId }: { postId: string }) {
           {[...value].length} / {COMMENT_MAX.toLocaleString()}자
         </span>
         <Button size="sm" loading={pending} disabled={!value.trim()}>
-          댓글 등록
+          {noun} 등록
         </Button>
       </div>
       {state.error && (
@@ -65,17 +80,84 @@ export function CommentForm({ postId }: { postId: string }) {
   );
 }
 
+function CommentLike({
+  comment,
+  postId,
+  disabled,
+}: {
+  comment: Comment;
+  postId: string;
+  disabled: boolean;
+}) {
+  const [liked, setLiked] = useState(comment.liked);
+  const [count, setCount] = useState(comment.like_count);
+  const [failed, setFailed] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const toggle = () => {
+    const next = !liked;
+    setFailed(null);
+    setLiked(next);
+    setCount((c) => Math.max(0, c + (next ? 1 : -1)));
+    startTransition(async () => {
+      try {
+        const res = await setCommentLike(comment.id, postId, next);
+        if (res.error) throw new Error(res.error);
+        setLiked(res.liked!);
+        setCount(res.count!);
+      } catch (e) {
+        setLiked(!next);
+        setCount((c) => Math.max(0, c + (next ? -1 : 1)));
+        setFailed(
+          e instanceof Error && e.message
+            ? e.message
+            : "처리하지 못했어요. 다시 시도해 주세요.",
+        );
+      }
+    });
+  };
+  return (
+    <>
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={disabled || pending}
+        aria-pressed={liked}
+        aria-label={`댓글 추천 ${count}`}
+        title={disabled ? "내 댓글은 추천할 수 없어요" : undefined}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-sm border-2 border-ink px-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:border-ink-subtle disabled:text-ink-muted",
+          liked ? "bg-hongcha" : "bg-surface",
+        )}
+      >
+        <span aria-hidden>{liked ? "♥" : "♡"}</span>
+        <span className="font-mono">{count}</span>
+      </button>
+      {failed && (
+        <span role="alert" className="text-xs text-danger">
+          {failed}
+        </span>
+      )}
+    </>
+  );
+}
+
 export function CommentItem({
   comment,
   postId,
   mine,
   byPostAuthor,
+  hasReplies,
+  children,
 }: {
   comment: Comment;
   postId: string;
   mine: boolean;
   byPostAuthor: boolean;
+  hasReplies?: boolean;
+  children?: React.ReactNode;
 }) {
+  const [replying, setReplying] = useState(false);
+  const closeReply = useCallback(() => setReplying(false), []);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(comment.body);
   const [error, setError] = useState<string | null>(null);
@@ -127,7 +209,13 @@ export function CommentItem({
               className="h-7 px-2 text-xs"
               loading={pending}
               onClick={() => {
-                if (window.confirm("댓글을 삭제할까요?"))
+                if (
+                  window.confirm(
+                    hasReplies
+                      ? "답글도 함께 삭제돼요. 댓글을 삭제할까요?"
+                      : "댓글을 삭제할까요?",
+                  )
+                )
                   run(() => deleteComment(comment.id, postId));
               }}
             >
@@ -183,6 +271,30 @@ export function CommentItem({
           {error}
         </p>
       )}
+      <div className="flex flex-wrap items-center gap-2">
+        <CommentLike comment={comment} postId={postId} disabled={mine} />
+        {/* 답글은 댓글에만 달 수 있다 (답글의 답글은 불가) */}
+        {!comment.parent_id && (
+          <button
+            type="button"
+            onClick={() => setReplying((v) => !v)}
+            aria-expanded={replying}
+            className="text-xs font-bold text-ink-muted underline underline-offset-2 hover:text-ink"
+          >
+            답글
+          </button>
+        )}
+      </div>
+      {replying && (
+        <div className="ml-4 md:ml-8">
+          <CommentForm
+            postId={postId}
+            parentId={comment.id}
+            onDone={closeReply}
+          />
+        </div>
+      )}
+      {children}
     </li>
   );
 }

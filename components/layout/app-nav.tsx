@@ -101,7 +101,7 @@ const TABS: Item[] = [
 
 const EXTRA: Item[] = [
   { href: "/guide", label: "가이드" },
-  { href: "/mypage", label: "마이페이지", match: ["/mypage", "/u"] },
+  { href: "/mypage", label: "내 프로필", match: ["/mypage", "/u"] },
 ];
 
 // 로그인 전 화면에서는 하단 탭을 숨긴다

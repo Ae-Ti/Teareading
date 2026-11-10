@@ -43,15 +43,16 @@ import { Composer } from "./composer";
 // 채팅 화면이 보이는 동안만 <html data-chat>을 단다 (하단 탭·푸터 숨김, globals.css).
 // Next.js가 지나간 화면을 숨겨 둘 때(Activity) 레이아웃 효과 정리가 실행되므로 떠나면 바로 풀린다.
 let visibleChatRooms = 0;
-function useChatChrome() {
+function useChatChrome(enabled: boolean) {
   useLayoutEffect(() => {
+    if (!enabled) return;
     visibleChatRooms += 1;
     document.documentElement.dataset.chat = "";
     return () => {
       visibleChatRooms -= 1;
       if (visibleChatRooms === 0) delete document.documentElement.dataset.chat;
     };
-  }, []);
+  }, [enabled]);
 }
 
 type Conn = "connecting" | "live" | "lost";
@@ -68,6 +69,7 @@ export function ChatRoom({
   disabledReason,
   roles,
   canModerate = false,
+  embedded = false,
 }: {
   room: ChatRoomRef;
   me: string;
@@ -83,8 +85,10 @@ export function ChatRoom({
   // 단체 채팅: 모임장·부모임장 표시와 메시지 삭제 권한
   roles?: Record<string, "owner" | "manager">;
   canModerate?: boolean;
+  // 옆에 뜨는 대화창: 하단 탭·푸터를 숨기지 않는다
+  embedded?: boolean;
 }) {
-  useChatChrome();
+  useChatChrome(!embedded);
   const [items, setItems] = useState<ChatItem[]>(() =>
     mergeMessages([], initial.messages),
   );
