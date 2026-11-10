@@ -34,6 +34,32 @@ export async function getPublicStats(
   return { stats: error ? null : (data as unknown as PublicStats), error };
 }
 
+// 내 프로필: 내가 쓴 글·댓글 (최근 20개씩)
+export async function getMyActivity(
+  client: SupabaseClient<Database>,
+  id: string,
+) {
+  const [posts, comments] = await Promise.all([
+    client
+      .from("posts")
+      .select("id, title, category, created_at")
+      .eq("author_id", id)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    client
+      .from("post_comments")
+      .select("id, body, created_at, post_id, post:posts(title)")
+      .eq("author_id", id)
+      .order("created_at", { ascending: false })
+      .limit(20),
+  ]);
+  return {
+    error: posts.error ?? comments.error,
+    posts: posts.data ?? [],
+    comments: comments.data ?? [],
+  };
+}
+
 export async function getProfileGroups(
   client: SupabaseClient<Database>,
   id: string,

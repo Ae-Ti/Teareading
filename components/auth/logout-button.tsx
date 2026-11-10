@@ -5,7 +5,7 @@ import { unstable_rethrow } from "next/navigation";
 import { logout } from "@/app/auth/actions";
 import { INITIAL_AUTH_STATE, SERVICE_ERROR } from "@/lib/auth/forms";
 
-// 디자인 셸/마이페이지에서 이 컴포넌트를 가져다 사용할 수 있다.
+// 디자인 셸/내 프로필에서 이 컴포넌트를 가져다 사용할 수 있다.
 export function LogoutButton({
   variant = "page",
 }: {

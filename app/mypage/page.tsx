@@ -5,12 +5,19 @@ import {
   ProfileSummary,
   ProfileGroups,
 } from "@/components/profile/profile-summary";
+import { MyActivity } from "@/components/profile/my-activity";
+import { FriendsButton } from "@/components/social/friends-button";
 import { LinkButton } from "@/components/ui/link-button";
 import { LoadingBlock, StateMessage } from "@/components/ui/state";
-import { getPublicProfile, getProfileGroups } from "@/lib/profile/data";
+import {
+  getMyActivity,
+  getPublicProfile,
+  getProfileGroups,
+} from "@/lib/profile/data";
+import { getFriends } from "@/lib/social/data";
 import { requireUser } from "@/lib/supabase/user";
 
-export const metadata = { title: "마이페이지 · 티어리딩" };
+export const metadata = { title: "내 프로필 · 티어리딩" };
 
 export default function Page() {
   return (
@@ -22,14 +29,16 @@ export default function Page() {
 
 async function MyPage() {
   const { supabase, userId } = await requireUser("/mypage");
-  const [profile, groups, auth] = await Promise.all([
+  const [profile, groups, auth, friends, activity] = await Promise.all([
     getPublicProfile(supabase, userId),
     getProfileGroups(supabase, userId),
     supabase.auth.getUser(),
+    getFriends(supabase, userId),
+    getMyActivity(supabase, userId),
   ]);
   return (
     <div className="mx-auto max-w-3xl space-y-7 py-8 md:py-10">
-      <h1 className="text-3xl font-bold">마이페이지</h1>
+      <h1 className="text-3xl font-bold">내 프로필</h1>
       {profile.error || !profile.data ? (
         <StateMessage
           tone="error"
@@ -41,16 +50,19 @@ async function MyPage() {
           <ProfileSummary
             profile={profile.data}
             email={auth.data.user?.email}
-          />
-          <div className="flex flex-wrap gap-3">
-            <LinkButton href="/mypage/edit">프로필 수정</LinkButton>
-            <LinkButton href={`/u/${userId}`} variant="secondary">
+            friends={<FriendsButton friends={friends} />}
+          >
+            <LinkButton href="/mypage/edit" size="sm">
+              프로필 수정
+            </LinkButton>
+            <LinkButton href={`/u/${userId}`} variant="secondary" size="sm">
               내 공개 프로필
             </LinkButton>
-            <LinkButton href="/me" variant="secondary">
+            <LinkButton href="/me" variant="secondary" size="sm">
               내 기록 보기
             </LinkButton>
-          </div>
+          </ProfileSummary>
+          <MyActivity activity={activity} />
           <ProfileGroups result={groups} retryHref="/mypage" />
         </>
       )}

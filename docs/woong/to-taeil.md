@@ -108,3 +108,23 @@
 되돌리는 방법: 이 브랜치의 커밋을 `git revert` 하면 된다. 상태 메시지와 복원만 빼고 싶으면 `lib/space/resume.ts`와 `teahouse-room.tsx`의 복원 effect만 지우면 되고, Presence 제한 수정은 남겨 두는 편이 좋다.
 
 같은 브랜치의 DB 변경(`20261110000200_library_profile.sql`): 책 표지·읽은 쪽 수정, 공개 프로필 합계 통계(`public_profile_stats`). 태일이 정의한 `my_record_stats`를 이 파일에서 다시 정의했다.
+
+## [ ] 소셜 기능 확인 (`feat/woong-social`, 2026-11-10, 웅싯)
+
+**마이그레이션 확인 필요:** `20261110000300_social.sql` (RLS, RPC, 새 버킷 `post-images`, `live_requests` Realtime 추가)
+
+| 기능 | 내용 |
+|---|---|
+| 댓글 | `post_comments.parent_id`, `like_count`, `comment_likes`. 답글의 답글은 트리거가 막는다 |
+| 사진 글쓰기 | `posts.content`(글·사진 블록). `body`에는 검색용 글만 들어간다. 사진은 서버에서 다시 인코딩하고, `next.config.ts`의 `bodySizeLimit`을 6mb로 올렸다 |
+| 친구 | `friendships`. 신청과 수락은 `live_requests`를 쓴다 |
+| 접속 중 표시 | `user_heartbeats`. 45초마다 기록하고 90초 안에 기록이 있으면 접속 중으로 본다. `my_online_friends`로만 읽는다 |
+| 수락/거절 팝업 | `live_requests`, `create_live_request`, `respond_live_request`. 전역 `RequestCenter`가 앱 어디서든 받는다 |
+
+태일 담당인 찻집 코드도 고쳤다 (`teahouse-room.tsx`, `pixel/scene.ts`, 새 파일 `player-menu.tsx`). 다른 사람 캐릭터를 누르면 메뉴가 뜨고, 찻집에서 맺은 모임 이름이 캐릭터 아래에 보인다. 대시보드의 `오늘의 다도 가이드`는 `오늘의 핫게시물`로 바꿨다. **마음에 안 들면 태일이 원래대로 되돌려도 된다.**
+
+알아 둘 점:
+
+- 글을 쓰다 올린 사진을 글에 넣지 않고 나가면 파일이 남는다. 회원 탈퇴 때 지워지고, 한 사람당 500장으로 막아 두었다
+- 프로덕션에 올릴 때 마이그레이션을 먼저 적용해야 한다 (`post-images` 버킷도 이때 만들어진다)
+- 개인정보처리방침에 친구 목록 공개, 접속 정보, 글 사진을 추가했다. 이 내용이 맞는지 같이 봐 주면 좋겠다

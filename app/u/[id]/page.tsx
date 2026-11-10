@@ -6,6 +6,8 @@ import {
 } from "@/components/profile/profile-summary";
 import { BlockButton } from "@/components/dm/block-button";
 import { StartDmButton } from "@/components/dm/start-dm-button";
+import { FriendButton } from "@/components/social/friend-button";
+import { FriendsButton } from "@/components/social/friends-button";
 import { LinkButton } from "@/components/ui/link-button";
 import { LoadingBlock, StateMessage } from "@/components/ui/state";
 import { isBlockedByMe } from "@/lib/dm";
@@ -14,6 +16,7 @@ import {
   getProfileGroups,
   getPublicStats,
 } from "@/lib/profile/data";
+import { getFriendRelation, getFriends } from "@/lib/social/data";
 import { requireUser } from "@/lib/supabase/user";
 
 export const metadata = { title: "공개 프로필 · 티어리딩" };
@@ -53,15 +56,20 @@ async function PublicProfile({ params }: PageProps<"/u/[id]">) {
       </div>
     );
   const isMe = userId === id;
-  const [groups, block, activity] = await Promise.all([
+  const [groups, block, activity, friends, relation] = await Promise.all([
     getProfileGroups(supabase, id),
     isMe ? null : isBlockedByMe(supabase, userId, id),
     getPublicStats(supabase, id),
+    getFriends(supabase, id),
+    isMe ? null : getFriendRelation(supabase, userId, id),
   ]);
   return (
     <div className="mx-auto max-w-3xl space-y-7 py-8 md:py-10">
-      <h1 className="text-3xl font-bold">공개 프로필</h1>
-      <ProfileSummary profile={profile.data} />
+      <ProfileSummary
+        profile={profile.data}
+        as="h1"
+        friends={<FriendsButton friends={friends} />}
+      />
       {isMe ? (
         <LinkButton href="/mypage/edit">프로필 수정</LinkButton>
       ) : (
@@ -71,7 +79,18 @@ async function PublicProfile({ params }: PageProps<"/u/[id]">) {
               차단한 회원이에요. 차단을 해제하면 메시지를 주고받을 수 있어요.
             </p>
           ) : (
-            <StartDmButton userId={id} />
+            <>
+              <StartDmButton userId={id} />
+              {relation && (
+                <FriendButton
+                  me={userId}
+                  userId={id}
+                  nickname={profile.data.nickname}
+                  relation={relation.relation}
+                  requestId={relation.requestId}
+                />
+              )}
+            </>
           )}
           <BlockButton
             userId={id}

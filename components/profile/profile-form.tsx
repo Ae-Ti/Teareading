@@ -183,7 +183,7 @@ export function ProfileForm({ profile }: { profile: EditableProfile }) {
             프로필 저장
           </Button>
           <LinkButton href="/mypage" variant="secondary">
-            마이페이지로
+            내 프로필로
           </LinkButton>
         </div>
       </fieldset>

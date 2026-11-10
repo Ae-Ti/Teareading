@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { RequestCenter } from "@/components/social/request-center";
 import { getUser } from "@/lib/supabase/user";
 import { NavDesktop, NavMobile, NavTabs } from "./app-nav";
 
@@ -10,7 +11,13 @@ async function NavLogout() {
   return userId ? <LogoutButton variant="nav" /> : null;
 }
 
-// 전역 레이아웃: 상단 바(데스크톱은 전체 메뉴, 모바일은 로고·가이드·마이페이지) + 모바일 하단 탭 + 푸터
+// 로그인 상태면 어느 화면에서든 수락/거절 창을 받는다
+async function SocialLayer() {
+  const { userId } = await getUser();
+  return userId ? <RequestCenter userId={userId} /> : null;
+}
+
+// 전역 레이아웃: 상단 바(데스크톱은 전체 메뉴, 모바일은 로고·가이드·내 프로필) + 모바일 하단 탭 + 푸터
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="app-frame flex min-h-dvh flex-col">
@@ -59,6 +66,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </footer>
       <Suspense fallback={<NavTabs fallback />}>
         <NavTabs />
+      </Suspense>
+      <Suspense fallback={null}>
+        <SocialLayer />
       </Suspense>
     </div>
   );

@@ -14,7 +14,7 @@ export default function Page() {
         href="/mypage"
         className="text-sm font-bold text-ink-muted hover:text-ink"
       >
-        ← 마이페이지
+        ← 내 프로필
       </Link>
       <h1 className="text-3xl font-bold">회원 탈퇴</h1>
       <Suspense fallback={<LoadingBlock className="h-80" />}>

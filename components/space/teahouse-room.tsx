@@ -37,7 +37,9 @@ import {
 } from "@/lib/space/resume";
 import { createClient } from "@/lib/supabase/client";
 import { detectDevice } from "@/lib/track";
+import { SOCIAL_CHANGED } from "@/lib/social/requests";
 import { AvatarEditor } from "./avatar-editor";
+import { PlayerMenu, type PlayerTarget } from "./player-menu";
 import { RoomEditor } from "./room-editor";
 import { TeahouseScene } from "./pixel/scene";
 import type { Decor } from "./pixel/tiles";
@@ -56,6 +58,7 @@ const TRACK_GAP_MS = 7000;
 const LIVE_STATE_MS = 10_000;
 
 type Status = "connecting" | "ready" | "entering" | "inside" | "error";
+type SpaceGroup = { id: string; name: string };
 
 const KEYS: Record<string, Dir> = {
   ArrowUp: "up",
@@ -116,6 +119,7 @@ export function TeahouseRoom({
   const [seated, setSeated] = useState(false);
   const [myMessage, setMyMessage] = useState<string | null>(null);
   const [messageDraft, setMessageDraft] = useState("");
+  const [menu, setMenu] = useState<PlayerTarget | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -132,6 +136,8 @@ export function TeahouseRoom({
     new Map<string, { at: number; state: StateMessage }>(),
   );
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const groupsRef = useRef(new Map<string, SpaceGroup[]>()); // 사람별 찻집 모임
+  const peopleKeyRef = useRef("");
   const mapRef = useRef<GameMap>(MAPS.teahouse);
   const movingRef = useRef(false); // 문을 지나는 중에는 입력을 받지 않는다
   const seatCheckRef = useRef(false); // 돌아온 직후 내 자리에 다른 사람이 앉았는지 확인
@@ -145,6 +151,43 @@ export function TeahouseRoom({
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2200);
   }, []);
+
+  // 이 사람의 대표 모임: 나도 들어가 있는 모임이 먼저
+  const groupOf = useCallback(
+    (id: string) => {
+      const mine = groupsRef.current.get(me.user_id) ?? [];
+      const theirs = groupsRef.current.get(id) ?? [];
+      const shared = theirs.find((g) => mine.some((m) => m.id === g.id));
+      const group = shared ?? theirs[0];
+      return group ? { ...group, member: Boolean(shared) } : null;
+    },
+    [me.user_id],
+  );
+
+  // 지금 찻집에 있는 사람들의 모임을 읽어 캐릭터 아래 이름표를 맞춘다
+  const refreshGroups = useCallback(async () => {
+    const ids = [me.user_id, ...othersRef.current.map((p) => p.user_id)];
+    const { data, error } = await createClient()
+      .from("group_members")
+      .select("user_id, group:groups!inner(id, name, from_space)")
+      .in("user_id", ids)
+      .eq("group.from_space", true)
+      .order("joined_at", { ascending: false });
+    if (error || !data) return;
+    const next = new Map<string, SpaceGroup[]>();
+    for (const row of data) {
+      next.set(row.user_id, [
+        ...(next.get(row.user_id) ?? []),
+        { id: row.group.id, name: row.group.name },
+      ]);
+    }
+    groupsRef.current = next;
+    const scene = sceneRef.current;
+    for (const id of scene?.ids() ?? [])
+      scene?.setGroup(id, groupOf(id)?.name ?? null);
+    // 메뉴를 연 채로 모임 정보가 바뀌면 메뉴도 맞춘다
+    setMenu((open) => open && { ...open, group: groupOf(open.id) });
+  }, [me.user_id, groupOf]);
 
   // 내 상태(위치·자리·캐릭터)를 Presence에 반영. 연달아 바뀌면 마지막 것만 보낸다.
   const pushState = useCallback(
@@ -230,6 +273,7 @@ export function TeahouseRoom({
       setPeople([]);
       setMapId(next.id);
       setEditingRoom(false);
+      setMenu(null);
       sceneRef.current?.setMap(
         next,
         next.id === "room" ? decorRef.current : undefined,
@@ -272,7 +316,22 @@ export function TeahouseRoom({
       mapRef.current,
       undefined,
       {
+        onPlayer: (id, at) => {
+          if (!insideRef.current || movingRef.current) return;
+          const person = othersRef.current.find((p) => p.user_id === id);
+          if (!person) return;
+          setMenu({
+            id,
+            nickname: person.nickname,
+            x: at.x,
+            y: at.y,
+            areaW: canvasRef.current?.clientWidth ?? 320,
+            areaH: canvasRef.current?.clientHeight ?? 320,
+            group: groupOf(id),
+          });
+        },
         onTap: (tile) => {
+          setMenu(null);
           if (!insideRef.current || movingRef.current) return;
           const map = mapRef.current;
           const seat = seatAt(map, tile.x, tile.y);
@@ -307,7 +366,15 @@ export function TeahouseRoom({
       scene.destroy();
       sceneRef.current = null;
     };
-  }, [me.user_id, goThrough, moveMe, pushState, seatTakenByOther, showToast]);
+  }, [
+    me.user_id,
+    goThrough,
+    moveMe,
+    pushState,
+    seatTakenByOther,
+    showToast,
+    groupOf,
+  ]);
 
   // 다른 화면에 갔다 돌아오면 있던 곳에서 이어서 시작한다.
   // Next.js가 화면을 숨겼다 다시 보여 줄 때도, 새로 그릴 때도 여기를 지난다.
@@ -393,11 +460,12 @@ export function TeahouseRoom({
         sitting: !!seat && seat.x === pos.x && seat.y === pos.y,
         message: seat ? cleanMessage(p.message) : null,
       });
+      scene.setGroup(p.user_id, groupOf(p.user_id)?.name ?? null);
     }
     for (const id of scene.ids()) {
       if (id !== me.user_id && !present.has(id)) scene.remove(id);
     }
-  }, [me.user_id]);
+  }, [me.user_id, groupOf]);
 
   // 공용 공간의 채널 연결은 입장 전부터 한다 (지금 누가 있는지 보여주기 위해). 입장 = track, 퇴장 = untrack.
   // 내 방은 나만 들어오는 공간이라 채널을 열지 않는다. 그래서 다른 사람이 들어올 경로 자체가 없다.
@@ -428,6 +496,15 @@ export function TeahouseRoom({
           });
         setPeople(list);
         syncOthers();
+        // 드나드는 사람이 바뀌었을 때만 모임 이름을 다시 읽는다
+        const key = list
+          .map((p) => p.user_id)
+          .sort()
+          .join();
+        if (key !== peopleKeyRef.current) {
+          peopleKeyRef.current = key;
+          void refreshGroups();
+        }
         // 비운 사이 내 자리에 다른 분이 앉았으면 입구로 옮긴다
         if (seatCheckRef.current) {
           seatCheckRef.current = false;
@@ -483,7 +560,24 @@ export function TeahouseRoom({
       channelRef.current = null;
       void supabase.removeChannel(channel);
     };
-  }, [me.user_id, attempt, mapId, syncOthers, pushState, showToast]);
+  }, [
+    me.user_id,
+    attempt,
+    mapId,
+    syncOthers,
+    pushState,
+    showToast,
+    refreshGroups,
+  ]);
+
+  // 입장했을 때, 찻집에서 모임이 새로 맺어졌을 때 이름표를 맞춘다
+  const isInside = status === "inside";
+  useEffect(() => {
+    if (!isInside) return;
+    void refreshGroups();
+    window.addEventListener(SOCIAL_CHANGED, refreshGroups);
+    return () => window.removeEventListener(SOCIAL_CHANGED, refreshGroups);
+  }, [isInside, refreshGroups]);
 
   // 화면을 떠나면 있던 곳을 저장하고 체류 기록을 닫는다
   useEffect(() => {
@@ -742,6 +836,14 @@ export function TeahouseRoom({
           aria-hidden
         />
 
+        {menu && inside && (
+          <PlayerMenu
+            key={menu.id}
+            target={menu}
+            onClose={() => setMenu(null)}
+            onToast={showToast}
+          />
+        )}
         {toast && (
           <div
             className="space-textbox absolute inset-x-3 bottom-3"
@@ -808,7 +910,8 @@ export function TeahouseRoom({
       {inside && (
         <p className="text-xs text-ink-muted">
           바닥을 누르면 걸어가요. 방석을 누르면 앉고, 문을 밟으면 다른 곳으로
-          가요. 키보드는 방향키나 WASD.
+          가요. 다른 사람 캐릭터를 누르면 대화나 모임을 신청할 수 있어요.
+          키보드는 방향키나 WASD.
         </p>
       )}
 

@@ -46,18 +46,90 @@ export const hasVisibleText = (v: string) =>
   v.replace(INVISIBLE, "").length > 0;
 
 // ── 입력 검사 (DB 제약과 같은 기준) ──
-export type PostValues = { category: Category; title: string; body: string };
+// 글 내용 블록: 글과 사진을 쓰는 순서대로 저장한다. 사진이 없는 글은 content 없이 body만 쓴다.
+export type PostBlock =
+  { type: "text"; text: string } | { type: "image"; url: string };
+export const POST_IMAGE_MAX = 30;
+
+const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+const IMAGE_FILE = new RegExp(`^${UUID}\\.webp$`);
+
+// 사진은 작성자 본인 폴더에 올린 파일만 허용한다 (다른 사이트 주소로 접속 정보가 새지 않게)
+export function isOwnPostImage(url: unknown, userId: string) {
+  if (typeof url !== "string") return false;
+  const prefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/post-images/${userId}/`;
+  return url.startsWith(prefix) && IMAGE_FILE.test(url.slice(prefix.length));
+}
+
+// 저장된 글 내용을 안전한 블록만 남겨 읽는다. 사진 블록이 없으면 null (body를 그대로 보여 준다)
+export function readBlocks(content: unknown, authorId: string) {
+  if (!Array.isArray(content)) return null;
+  const blocks = content.flatMap((b): PostBlock[] => {
+    if (b?.type === "text" && typeof b.text === "string")
+      return [{ type: "text", text: b.text }];
+    if (b?.type === "image" && isOwnPostImage(b.url, authorId))
+      return [{ type: "image", url: b.url }];
+    return [];
+  });
+  return blocks.some((b) => b.type === "image") ? blocks : null;
+}
+
+export const imagesOf = (content: unknown) =>
+  Array.isArray(content)
+    ? content.flatMap((b) =>
+        b?.type === "image" && typeof b.url === "string"
+          ? [b.url as string]
+          : [],
+      )
+    : [];
+
+export type PostValues = {
+  category: Category;
+  title: string;
+  body: string;
+  content: PostBlock[] | null;
+};
 export type PostErrors = Partial<Record<keyof PostValues | "form", string>>;
 
-export function validatePost(form: FormData) {
+const trimEdges = (v: string) => v.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, "");
+
+function parseContent(raw: string, userId: string) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed)) return null;
+  const blocks: PostBlock[] = [];
+  for (const b of parsed) {
+    if (b?.type === "text" && typeof b.text === "string") {
+      const text = trimEdges(b.text);
+      if (text) blocks.push({ type: "text", text });
+    } else if (b?.type === "image" && isOwnPostImage(b.url, userId)) {
+      blocks.push({ type: "image", url: b.url });
+    } else return null;
+  }
+  return blocks;
+}
+
+export function validatePost(form: FormData, userId: string) {
   const category = String(form.get("category") ?? "free");
+  const rawContent = form.get("content");
+  const blocks =
+    typeof rawContent === "string" ? parseContent(rawContent, userId) : null;
+  const images = blocks?.filter((b) => b.type === "image").length ?? 0;
+  // 검색용 본문: 글 블록을 이어 붙인다. 사진만 있는 글은 사진 장수로 채운다
+  const text = blocks
+    ?.flatMap((b) => (b.type === "text" ? [b.text] : []))
+    .join("\n\n");
   const values: PostValues = {
     category: isCategory(category) ? category : "free",
     title: String(form.get("title") ?? "").trim(),
-    body: String(form.get("body") ?? "").replace(
-      /^[ \t\r\n]+|[ \t\r\n]+$/g,
-      "",
-    ),
+    body: blocks
+      ? text || (images ? `사진 ${images}장` : "")
+      : trimEdges(String(form.get("body") ?? "")),
+    content: images ? blocks : null,
   };
   const errors: PostErrors = {};
   if (!isCategory(category)) errors.category = "말머리를 골라 주세요.";
@@ -67,7 +139,11 @@ export function validatePost(form: FormData) {
     chars(values.title) > TITLE_MAX
   )
     errors.title = `제목은 ${TITLE_MIN}~${TITLE_MAX}자로 입력해 주세요.`;
-  if (!hasVisibleText(values.body)) errors.body = "내용을 입력해 주세요.";
+  if (typeof rawContent === "string" && !blocks)
+    errors.body = "사진을 불러오지 못했어요. 사진을 다시 넣어 주세요.";
+  else if (images > POST_IMAGE_MAX)
+    errors.body = `사진은 ${POST_IMAGE_MAX}장까지 넣을 수 있어요.`;
+  else if (!hasVisibleText(values.body)) errors.body = "내용을 입력해 주세요.";
   else if (chars(values.body) > BODY_MAX)
     errors.body = `내용은 ${BODY_MAX.toLocaleString()}자 이내로 입력해 주세요.`;
   return { values, errors: Object.keys(errors).length ? errors : null };
@@ -218,6 +294,9 @@ export async function listPosts(
 
 export type Comment = {
   id: string;
+  parent_id: string | null;
+  like_count: number;
+  liked: boolean;
   body: string;
   created_at: string;
   updated_at: string;
@@ -225,16 +304,20 @@ export type Comment = {
   author: Author | null;
 };
 
-export type PostDetail = PostSummary & { body: string; author_id: string };
+export type PostDetail = PostSummary & {
+  body: string;
+  content: unknown;
+  author_id: string;
+};
 
 export async function getPost(supabase: Client, id: string, me: string) {
   if (!isUuid(id))
     return { post: null, liked: false, comments: [], error: null };
-  const [post, like, comments] = await Promise.all([
+  const [post, like, comments, commentLikes] = await Promise.all([
     supabase
       .from("posts")
       .select(
-        `${SUMMARY}, body, author_id, author:profiles!posts_author_id_fkey(id, nickname, avatar_url)`,
+        `${SUMMARY}, body, content, author_id, author:profiles!posts_author_id_fkey(id, nickname, avatar_url)`,
       )
       .eq("id", id)
       .maybeSingle(),
@@ -247,21 +330,50 @@ export async function getPost(supabase: Client, id: string, me: string) {
     supabase
       .from("post_comments")
       .select(
-        "id, body, created_at, updated_at, author_id, author:profiles!post_comments_author_id_fkey(id, nickname, avatar_url)",
+        "id, parent_id, like_count, body, created_at, updated_at, author_id, author:profiles!post_comments_author_id_fkey(id, nickname, avatar_url)",
       )
       .eq("post_id", id)
       .order("created_at")
       .order("id"),
+    supabase
+      .from("comment_likes")
+      .select("comment_id, comment:post_comments!inner(post_id)")
+      .eq("user_id", me)
+      .eq("comment.post_id", id),
   ]);
-  const error = post.error ?? like.error ?? comments.error;
+  const error =
+    post.error ?? like.error ?? comments.error ?? commentLikes.error;
   if (error || !post.data)
     return { post: null, liked: false, comments: [], error };
   return {
     error: null,
     post: post.data as unknown as PostDetail,
     liked: Boolean(like.data),
-    comments: (comments.data ?? []) as unknown as Comment[],
+    comments: ((comments.data ?? []) as unknown as Comment[]).map((c) => ({
+      ...c,
+      liked: Boolean(commentLikes.data?.some((l) => l.comment_id === c.id)),
+    })),
   };
+}
+
+// 오늘의 핫게시물: 최근 하루 글 중 추천·댓글·조회가 많은 글. 없으면 최근 일주일에서 고른다
+export async function getHotPost(supabase: Client) {
+  const pick = (days: number) =>
+    supabase
+      .from("posts")
+      .select(
+        `${SUMMARY}, author:profiles!posts_author_id_fkey(id, nickname, avatar_url)`,
+      )
+      .gte("created_at", new Date(Date.now() - days * 86_400_000).toISOString())
+      .order("like_count", { ascending: false })
+      .order("comment_count", { ascending: false })
+      .order("view_count", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+  const today = await pick(1);
+  const row = today.data ?? (today.error ? null : (await pick(7)).data);
+  return row as unknown as PostSummary | null;
 }
 
 // ── 표시 ──

@@ -2,12 +2,11 @@
 
 import { useActionState, useEffect, useState } from "react";
 import type { PostFormState } from "@/app/board/actions";
+import { BlockEditor } from "@/components/board/block-editor";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/components/ui/cn";
 import { Input } from "@/components/ui/input";
 import { LinkButton } from "@/components/ui/link-button";
-import { Textarea } from "@/components/ui/textarea";
-import { BODY_MAX, CATEGORIES, TITLE_MAX, type PostValues } from "@/lib/board";
+import { CATEGORIES, TITLE_MAX, type PostValues } from "@/lib/board";
 import { detectDevice } from "@/lib/track";
 
 export function PostForm({
@@ -30,7 +29,7 @@ export function PostForm({
   );
   const values = state.values ?? initial;
   const [title, setTitle] = useState(values?.title ?? "");
-  const [body, setBody] = useState(values?.body ?? "");
+  const [uploading, setUploading] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   // 저장하지 않은 내용이 있으면 떠나기 전에 묻는다
@@ -82,15 +81,14 @@ export function PostForm({
         error={state.errors?.title}
         hint={`${count(title)} / ${TITLE_MAX}자`}
       />
-      <Textarea
-        label="내용"
-        name="body"
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        placeholder="함께 나누고 싶은 이야기를 적어 주세요. 다른 사람을 배려하는 글을 부탁드려요."
+      <BlockEditor
+        initial={
+          values?.content ??
+          (values?.body ? [{ type: "text", text: values.body }] : [])
+        }
         error={state.errors?.body}
-        hint={`${count(body).toLocaleString()} / ${BODY_MAX.toLocaleString()}자`}
-        className={cn("min-h-72")}
+        onDirty={() => setDirty(true)}
+        onUploadingChange={setUploading}
       />
       {state.errors?.form && (
         <p role="alert" className="text-sm text-danger">
@@ -98,7 +96,9 @@ export function PostForm({
         </p>
       )}
       <div className="flex gap-3">
-        <Button loading={pending}>{submitLabel}</Button>
+        <Button loading={pending} disabled={uploading}>
+          {submitLabel}
+        </Button>
         <LinkButton href={cancelHref} variant="ghost">
           취소
         </LinkButton>
