@@ -42,6 +42,7 @@
     "test:library-units": "node --import tsx --test tests/book-search.test.ts tests/space-resume.test.ts",
     "test:space-state:e2e": "playwright test --config tests/auth.playwright.config.ts space-state.spec.ts",
     "test:social:db": "node --import tsx --test tests/social.db.test.ts",
+    "test:public-records:db": "node --import tsx --test tests/public-records.db.test.ts",
     "test:rls": "node --import tsx --test tests/rls.db.test.ts",
     "test:space": "node --import tsx --test tests/space.test.ts"
   },

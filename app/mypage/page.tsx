@@ -6,6 +6,7 @@ import {
   ProfileGroups,
 } from "@/components/profile/profile-summary";
 import { MyActivity } from "@/components/profile/my-activity";
+import { ProfileVisibility } from "@/components/profile/profile-visibility";
 import { FriendsButton } from "@/components/social/friends-button";
 import { LinkButton } from "@/components/ui/link-button";
 import { LoadingBlock, StateMessage } from "@/components/ui/state";
@@ -50,7 +51,15 @@ async function MyPage() {
           <ProfileSummary
             profile={profile.data}
             email={auth.data.user?.email}
-            friends={<FriendsButton friends={friends} />}
+            friends={
+              <>
+                <FriendsButton friends={friends} />
+                <ProfileVisibility
+                  userId={userId}
+                  isPublic={profile.data.is_public}
+                />
+              </>
+            }
           >
             <LinkButton href="/mypage/edit" size="sm">
               프로필 수정

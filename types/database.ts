@@ -787,6 +787,7 @@ export type Database = {
           bio: string | null;
           created_at: string;
           id: string;
+          is_public: boolean;
           nickname: string;
           updated_at: string;
         };
@@ -796,6 +797,7 @@ export type Database = {
           bio?: string | null;
           created_at?: string;
           id: string;
+          is_public?: boolean;
           nickname: string;
           updated_at?: string;
         };
@@ -804,6 +806,7 @@ export type Database = {
           bio?: string | null;
           created_at?: string;
           id?: string;
+          is_public?: boolean;
           nickname?: string;
           updated_at?: string;
         };
@@ -816,6 +819,7 @@ export type Database = {
           book_title: string;
           created_at: string;
           id: string;
+          is_public: boolean;
           pages_read: number | null;
           updated_at: string;
           user_id: string;
@@ -827,6 +831,7 @@ export type Database = {
           book_title: string;
           created_at?: string;
           id?: string;
+          is_public?: boolean;
           pages_read?: number | null;
           updated_at?: string;
           user_id?: string;
@@ -837,6 +842,7 @@ export type Database = {
           book_title?: string;
           created_at?: string;
           id?: string;
+          is_public?: boolean;
           pages_read?: number | null;
           updated_at?: string;
           user_id?: string;
@@ -950,6 +956,7 @@ export type Database = {
           body: string;
           created_at: string;
           id: string;
+          is_public: boolean;
           tea_type: string | null;
           title: string;
           updated_at: string;
@@ -960,6 +967,7 @@ export type Database = {
           body: string;
           created_at?: string;
           id?: string;
+          is_public?: boolean;
           tea_type?: string | null;
           title: string;
           updated_at?: string;
@@ -969,6 +977,7 @@ export type Database = {
           body?: string;
           created_at?: string;
           id?: string;
+          is_public?: boolean;
           tea_type?: string | null;
           title?: string;
           updated_at?: string;
@@ -1260,7 +1269,59 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      profile_visible: { Args: { p_user_id: string }; Returns: boolean };
+      public_finished_books: {
+        Args: { p_user_id: string };
+        Returns: {
+          author: string;
+          cover_url: string;
+          id: string;
+          title: string;
+        }[];
+      };
       public_profile_stats: { Args: { p_user_id: string }; Returns: Json };
+      public_reading_log: {
+        Args: { p_id: string };
+        Returns: {
+          body: string;
+          created_at: string;
+          id: string;
+          pages_read: number;
+          title: string;
+          user_id: string;
+        }[];
+      };
+      public_reading_logs: {
+        Args: { p_user_id: string };
+        Returns: {
+          created_at: string;
+          excerpt: string;
+          id: string;
+          pages_read: number;
+          title: string;
+        }[];
+      };
+      public_tea_column: {
+        Args: { p_id: string };
+        Returns: {
+          body: string;
+          created_at: string;
+          id: string;
+          tea_type: string;
+          title: string;
+          user_id: string;
+        }[];
+      };
+      public_tea_columns: {
+        Args: { p_user_id: string };
+        Returns: {
+          created_at: string;
+          excerpt: string;
+          id: string;
+          tea_type: string;
+          title: string;
+        }[];
+      };
       record_post_view: { Args: { p_post_id: string }; Returns: boolean };
       respond_live_request: {
         Args: { p_accept: boolean; p_id: string };

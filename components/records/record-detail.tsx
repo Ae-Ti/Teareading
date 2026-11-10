@@ -76,6 +76,7 @@ async function RecordDetail({
         )}
         <div className="flex flex-wrap gap-2">
           <Badge tone={config.tone}>{config.label}</Badge>
+          <Badge>{row.is_public ? "공개" : "비공개"}</Badge>
           {row.tea_type && <Badge>{TEA_TYPES[row.tea_type]}</Badge>}
           {row.pages_read && (
             <Badge>{row.pages_read.toLocaleString()}쪽 읽음</Badge>

@@ -22,7 +22,13 @@ export type RecordFormState = {
     teaType?: string;
     form?: string;
   };
-  values?: { title: string; body: string; pages?: string; teaType?: string };
+  values?: {
+    title: string;
+    body: string;
+    pages?: string;
+    teaType?: string;
+    isPublic?: boolean;
+  };
 };
 
 export async function saveRecord(
@@ -45,7 +51,8 @@ export async function saveRecord(
   const pages = String(formData.get("pages") ?? "").trim();
   const teaType = String(formData.get("teaType") ?? "");
   const bookId = String(formData.get("bookId") ?? "");
-  const values = { title, body, pages, teaType };
+  const isPublic = formData.get("visibility") === "public";
+  const values = { title, body, pages, teaType, isPublic };
 
   const errors: RecordFormState["errors"] = {};
   if (!title) errors.title = `${config.titleLabel}을 입력해 주세요.`;
@@ -72,7 +79,12 @@ export async function saveRecord(
           ...(bookId && isUuid(bookId) ? { book_id: bookId } : {}),
         }
       : { tea_type: teaType || null };
-  const payload = { [config.titleColumn]: title, body, ...extra } as never;
+  const payload = {
+    [config.titleColumn]: title,
+    body,
+    is_public: isPublic,
+    ...extra,
+  } as never;
   let savedId = id;
 
   if (kind === "reading" && !id && !isUuid(bookId))

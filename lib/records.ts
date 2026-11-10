@@ -55,6 +55,7 @@ export type RecordRow = {
   body: string;
   created_at: string;
   updated_at: string;
+  is_public: boolean;
   pages_read?: number | null;
   book_id?: string | null;
   book?: { cover_url: string | null } | null;
@@ -86,7 +87,7 @@ function columns(kind: RecordKind) {
     kind === "reading"
       ? "pages_read, book_id, book:books(cover_url)"
       : "tea_type";
-  return `id, title:${RECORD_KINDS[kind].titleColumn}, body, created_at, updated_at, ${extra}`;
+  return `id, title:${RECORD_KINDS[kind].titleColumn}, body, is_public, created_at, updated_at, ${extra}`;
 }
 
 export async function listRecords(
