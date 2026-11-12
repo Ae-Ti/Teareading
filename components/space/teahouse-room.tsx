@@ -48,12 +48,13 @@ import { TeahouseScene } from "./pixel/scene";
 import type { Decor } from "./pixel/tiles";
 import {
   MOVE_EVENT,
-  spaceChannel,
   STATE_EVENT,
+  userChannel,
   type MoveMessage,
   type SpacePresence,
   type StateMessage,
 } from "./presence";
+import { SpaceDirectory } from "./space-directory";
 
 // Presence 전송 간격. 서버 제한(30초에 5번)을 넘지 않게 한다.
 const TRACK_GAP_MS = 7000;
@@ -127,7 +128,17 @@ export function TeahouseRoom({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<TeahouseScene | null>(null);
+  // 내 개인 채널(나만 보낼 수 있다)과, 누가 있는지 따라가는 공용 채널
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const directoryRef = useRef<SpaceDirectory | null>(null);
+  // 본인 채널에서 확인한 상태와 DB에서 읽은 닉네임. 둘 다 있어야 캐릭터를 그린다.
+  const verifiedRef = useRef(new Map<string, SpacePresence>());
+  const profilesRef = useRef(
+    new Map<string, Pick<SpacePresence, "nickname" | "avatar_url">>(),
+  );
+  const profileLoadingRef = useRef(new Set<string>());
+  // 닉네임을 다 읽은 뒤 목록을 다시 만든다 (아래 rebuildOthers를 가리킨다)
+  const rebuildRef = useRef<() => void>(() => {});
   const visitRef = useRef<string | null>(null);
   const insideRef = useRef(false);
   const othersRef = useRef<SpacePresence[]>([]);
@@ -470,100 +481,157 @@ export function TeahouseRoom({
     }
   }, [me.user_id, groupOf]);
 
-  // 공용 공간의 채널 연결은 입장 전부터 한다 (지금 누가 있는지 보여주기 위해). 입장 = track, 퇴장 = untrack.
+  // 본인 채널에서 확인한 사람 + DB 닉네임으로 다른 사람 목록을 다시 만든다.
+  // 상태 안의 닉네임·user_id는 보낸 사람이 정한 값이라 쓰지 않는다.
+  const rebuildOthers = useCallback(() => {
+    const now = Date.now();
+    const list: SpacePresence[] = [];
+    const missing: string[] = [];
+    for (const [id, state] of verifiedRef.current) {
+      if (id === me.user_id) continue;
+      const profile = profilesRef.current.get(id);
+      if (!profile) {
+        missing.push(id);
+        continue;
+      }
+      const live = liveRef.current.get(id);
+      list.push({
+        ...state,
+        ...(live && now - live.at < LIVE_STATE_MS ? live.state : {}),
+        user_id: id,
+        nickname: profile.nickname,
+        avatar_url: profile.avatar_url,
+      });
+    }
+    list.sort((a, b) =>
+      String(a.entered_at ?? "").localeCompare(String(b.entered_at ?? "")),
+    );
+    othersRef.current = list;
+    setPeople(list);
+    syncOthers();
+    // 드나드는 사람이 바뀌었을 때만 모임 이름을 다시 읽는다
+    const key = list
+      .map((p) => p.user_id)
+      .sort()
+      .join();
+    if (key !== peopleKeyRef.current) {
+      peopleKeyRef.current = key;
+      void refreshGroups();
+    }
+    // 비운 사이 내 자리에 다른 분이 앉았으면 입구로 옮긴다
+    if (seatCheckRef.current && list.length) {
+      seatCheckRef.current = false;
+      const mine = myStateRef.current?.seat;
+      if (mine && list.some((p) => p.seat === mine)) {
+        const spawn = mapRef.current.spawn;
+        sceneRef.current?.setMap(mapRef.current, undefined, spawn, "up");
+        pushState({ seat: null, pos: spawn, dir: "up" });
+        showToast("비운 사이 다른 분이 앉아서 입구로 왔어요");
+      }
+    }
+    const load = missing.filter((id) => !profileLoadingRef.current.has(id));
+    if (!load.length) return;
+    for (const id of load) profileLoadingRef.current.add(id);
+    void createClient()
+      .from("profiles")
+      .select("id, nickname, avatar_url")
+      .in("id", load)
+      .then(({ data }) => {
+        for (const row of data ?? [])
+          profilesRef.current.set(row.id, {
+            nickname: row.nickname,
+            avatar_url: row.avatar_url,
+          });
+        for (const id of load) profileLoadingRef.current.delete(id);
+        if (data?.length) rebuildRef.current();
+      });
+  }, [me.user_id, syncOthers, refreshGroups, pushState, showToast]);
+  useEffect(() => {
+    rebuildRef.current = rebuildOthers;
+  }, [rebuildOthers]);
+
+  // 공용 공간의 채널 연결은 입장 전부터 한다 (지금 누가 있는지 보여주기 위해).
+  // 입장 = 공용 채널에 "나 여기 있다" + 내 개인 채널에 상태 track, 퇴장 = 둘 다 untrack.
   // 내 방은 채널을 열지 않는다. 친구의 구경은 별도 화면(room-visit)이고 실시간 전달이 없다.
   useEffect(() => {
     if (!MAPS[mapId].shared) return;
     const supabase = createClient();
-    const channel = supabase.channel(spaceChannel(mapId), {
+    // 로그인 회원만 접속하고, 개인 채널에는 본인만 보낸다 (20261113000100_space_user_topics.sql)
+    const channel = supabase.channel(userChannel(mapId, me.user_id), {
       config: {
-        private: true, // 로그인 회원만 접속 (20261111000200_space_channel_auth.sql)
+        private: true,
         presence: { key: me.user_id },
         broadcast: { self: false },
       },
     });
     channelRef.current = channel;
     let active = true;
+    let lobbyReady = false;
+    let mineReady = false;
+    verifiedRef.current = new Map();
+    liveRef.current = new Map();
 
-    channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState<SpacePresence>();
-        // 같은 계정이 탭을 여러 개 열어도 한 명으로 센다 (key = user_id)
-        const list = Object.values(state)
-          .map((metas) => metas[0])
-          .sort((a, b) => a.entered_at.localeCompare(b.entered_at));
-        // Presence보다 최근에 바로 받은 상태가 있으면 그것을 쓴다
-        const now = Date.now();
-        othersRef.current = list
-          .filter((p) => p.user_id !== me.user_id)
-          .map((p) => {
-            const live = liveRef.current.get(p.user_id);
-            return live && now - live.at < LIVE_STATE_MS
-              ? { ...p, ...live.state }
-              : p;
-          });
-        setPeople(list);
-        syncOthers();
-        // 드나드는 사람이 바뀌었을 때만 모임 이름을 다시 읽는다
-        const key = list
-          .map((p) => p.user_id)
-          .sort()
-          .join();
-        if (key !== peopleKeyRef.current) {
-          peopleKeyRef.current = key;
-          void refreshGroups();
+    const directory = new SpaceDirectory(supabase, mapId, me.user_id, {
+      onState: (id, state) => {
+        if (state) verifiedRef.current.set(id, state);
+        else {
+          verifiedRef.current.delete(id);
+          liveRef.current.delete(id);
         }
-        // 비운 사이 내 자리에 다른 분이 앉았으면 입구로 옮긴다
-        if (seatCheckRef.current) {
-          seatCheckRef.current = false;
-          const mine = myStateRef.current?.seat;
-          if (mine && othersRef.current.some((p) => p.seat === mine)) {
-            const spawn = mapRef.current.spawn;
-            sceneRef.current?.setMap(mapRef.current, undefined, spawn, "up");
-            pushState({ seat: null, pos: spawn, dir: "up" });
-            showToast("비운 사이 다른 분이 앉아서 입구로 왔어요");
-          }
-        }
-      })
-      .on("broadcast", { event: STATE_EVENT }, ({ payload }) => {
-        const msg = payload as StateMessage;
-        if (!msg?.user_id || msg.user_id === me.user_id) return;
-        liveRef.current.set(msg.user_id, { at: Date.now(), state: msg });
+        rebuildOthers();
+      },
+      onLive: (id, msg) => {
+        liveRef.current.set(id, { at: Date.now(), state: msg });
         othersRef.current = othersRef.current.map((p) =>
-          p.user_id === msg.user_id ? { ...p, ...msg } : p,
+          p.user_id === id ? { ...p, ...msg, user_id: id } : p,
         );
         syncOthers();
-      })
-      .on("broadcast", { event: MOVE_EVENT }, ({ payload }) => {
-        const msg = payload as MoveMessage;
+      },
+      onMove: (id, msg) => {
         const map = mapRef.current;
-        if (!msg || msg.user_id === me.user_id || !msg.from) return;
-        if (!othersRef.current.some((p) => p.user_id === msg.user_id)) return;
+        if (!msg.from) return;
+        if (!othersRef.current.some((p) => p.user_id === id)) return;
         if (
           !isWalkable(map, msg.from.x, msg.from.y) ||
           !isValidPath(map, msg.from, msg.path)
         )
           return;
-        sceneRef.current?.walk(msg.user_id, msg.from, msg.path);
-      });
+        sceneRef.current?.walk(id, msg.from, msg.path);
+      },
+      onStatus: (s) => {
+        if (s === "SUBSCRIBED") {
+          lobbyReady = true;
+          onReady();
+        }
+        if (s === "CHANNEL_ERROR" || s === "TIMED_OUT") setStatus("error");
+      },
+    });
+    directoryRef.current = directory;
 
+    // 두 채널이 모두 연결되면 입장할 수 있다. 맵을 옮겼거나 다시 연결한 경우 이 공간에 다시 나타난다.
+    const onReady = () => {
+      if (!lobbyReady || !mineReady) return;
+      if (
+        insideRef.current &&
+        myStateRef.current &&
+        mapRef.current.id === mapId
+      ) {
+        lastTrackRef.current = Date.now();
+        void channel.track(myStateRef.current);
+        void directory.announce();
+        setStatus("inside");
+      } else {
+        setStatus((prev) => (prev === "connecting" ? "ready" : prev));
+      }
+    };
     const onStatus = (s: `${REALTIME_SUBSCRIBE_STATES}`) => {
       if (s === "SUBSCRIBED") {
-        if (
-          insideRef.current &&
-          myStateRef.current &&
-          mapRef.current.id === mapId
-        ) {
-          // 맵을 옮겼거나 다시 연결한 경우: 이 채널에서 다시 나타난다
-          lastTrackRef.current = Date.now();
-          void channel.track(myStateRef.current);
-          setStatus("inside");
-        } else {
-          setStatus((prev) => (prev === "connecting" ? "ready" : prev));
-        }
+        mineReady = true;
+        onReady();
       }
       if (s === "CHANNEL_ERROR" || s === "TIMED_OUT") setStatus("error");
     };
+    directory.start();
     // 비공개 채널은 로그인 토큰이 있어야 해서, 토큰을 넘긴 뒤 연결한다
     void supabase.realtime.setAuth().finally(() => {
       if (active) channel.subscribe(onStatus);
@@ -572,17 +640,11 @@ export function TeahouseRoom({
     return () => {
       active = false;
       channelRef.current = null;
+      directoryRef.current = null;
+      directory.stop();
       void supabase.removeChannel(channel);
     };
-  }, [
-    me.user_id,
-    attempt,
-    mapId,
-    syncOthers,
-    pushState,
-    showToast,
-    refreshGroups,
-  ]);
+  }, [me.user_id, attempt, mapId, syncOthers, rebuildOthers]);
 
   // 입장했을 때, 찻집에서 모임이 새로 맺어졌을 때 이름표를 맞춘다
   const isInside = status === "inside";
@@ -657,7 +719,9 @@ export function TeahouseRoom({
     };
     lastTrackRef.current = Date.now();
     const res = await channel.track(state);
-    if (res !== "ok") {
+    const shown = res === "ok" ? await directoryRef.current?.announce() : res;
+    if (shown !== "ok") {
+      void channel.untrack();
       setStatus("error");
       return;
     }
@@ -692,7 +756,10 @@ export function TeahouseRoom({
     }
     sceneRef.current?.remove(me.user_id);
     if (mapRef.current.id === "teahouse") {
-      await channelRef.current?.untrack();
+      await Promise.all([
+        channelRef.current?.untrack(),
+        directoryRef.current?.hide(),
+      ]);
       setStatus("ready");
     } else {
       // 입장 화면은 항상 찻집이다
