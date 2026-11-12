@@ -45,6 +45,8 @@
     "test:public-records:db": "node --import tsx --test tests/public-records.db.test.ts",
     "test:friend-room:db": "node --import tsx --test tests/friend-room.db.test.ts",
     "test:friend-room:e2e": "playwright test --config tests/auth.playwright.config.ts friend-room.spec.ts",
+    "test:edge:db": "node --import tsx --test tests/edge.db.test.ts",
+    "test:edge:e2e": "playwright test --config tests/auth.playwright.config.ts edge-cases.spec.ts",
     "test:rls": "node --import tsx --test tests/rls.db.test.ts",
     "test:space": "node --import tsx --test tests/space.test.ts"
   },

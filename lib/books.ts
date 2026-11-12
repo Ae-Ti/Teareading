@@ -1,3 +1,4 @@
+import { hasVisibleText } from "@/lib/text";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAllowedCover } from "@/lib/book-search";
 import { isUuid } from "@/lib/records";
@@ -83,7 +84,7 @@ export function validateBook(form: FormData) {
     })(),
   };
   const errors: BookErrors = {};
-  if (!values.title) errors.title = "책 제목을 입력해 주세요.";
+  if (!hasVisibleText(values.title)) errors.title = "책 제목을 입력해 주세요.";
   else if ([...values.title].length > BOOK_TITLE_MAX)
     errors.title = `책 제목은 ${BOOK_TITLE_MAX}자 이내로 입력해 주세요.`;
   if ([...values.author].length > AUTHOR_MAX)

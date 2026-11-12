@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isUuid } from "@/lib/records";
 import { requireUser } from "@/lib/supabase/user";
+import { hasHiddenChars, hasVisibleText } from "@/lib/text";
 import { track, type Device } from "@/lib/track";
 
 export type GroupFormState = {
@@ -23,6 +24,8 @@ function readForm(formData: FormData) {
   const errors: GroupFormState["errors"] = {};
   if (values.name.length < NAME_MIN || values.name.length > NAME_MAX)
     errors.name = `모임 이름은 ${NAME_MIN}~${NAME_MAX}자로 입력해 주세요.`;
+  else if (!hasVisibleText(values.name) || hasHiddenChars(values.name))
+    errors.name = "모임 이름에 쓸 수 없는 글자가 있어요.";
   if (values.description.length > DESCRIPTION_MAX)
     errors.description = `소개는 ${DESCRIPTION_MAX}자 이내로 입력해 주세요.`;
   return { values, errors: errors.name || errors.description ? errors : null };
