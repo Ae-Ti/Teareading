@@ -4,6 +4,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { RequestCenter } from "@/components/social/request-center";
 import { getUser } from "@/lib/supabase/user";
 import { NavDesktop, NavTabs } from "./app-nav";
+import { OfflineBanner } from "./offline-banner";
 import { ProfileMenu } from "./profile-menu";
 
 // 로그인 상태에서만 내 메뉴와 로그아웃 버튼을 보여 준다. 세션을 읽으므로 Suspense 안에서 렌더한다.
@@ -35,6 +36,7 @@ async function SocialLayer() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="app-frame flex min-h-dvh flex-col">
+      <OfflineBanner />
       <header className="app-header sticky top-0 z-30 border-b-2 border-ink bg-surface">
         <nav
           aria-label="전체 메뉴"

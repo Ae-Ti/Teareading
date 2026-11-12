@@ -52,6 +52,7 @@ export function WeekAttendance({
                 {WEEKDAY_LABELS[i]}
               </span>
               <span
+                role="img"
                 aria-label={`${WEEKDAY_LABELS[i]}요일 ${attended ? "출석" : "미출석"}`}
                 className={cn(
                   "flex aspect-square w-full items-center justify-center rounded-sm border-2 border-ink text-xs font-bold",

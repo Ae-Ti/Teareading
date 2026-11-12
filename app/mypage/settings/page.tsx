@@ -68,7 +68,12 @@ async function Settings() {
             userId={userId}
             isPublic={profile.data.is_public}
           />
-          <div className="legal-table">
+          <div
+            className="legal-table"
+            tabIndex={0}
+            role="region"
+            aria-label="프로필 공개 범위 표"
+          >
             <table>
               <thead>
                 <tr>
@@ -106,24 +111,28 @@ async function Settings() {
               <dd className="text-xl font-bold tabular-nums">
                 {publicColumns.count ?? 0} / {columns.count ?? 0}편
               </dd>
-              <Link
-                href="/me/columns"
-                className="text-sm font-bold underline underline-offset-4"
-              >
-                내 차칼럼
-              </Link>
+              <dd>
+                <Link
+                  href="/me/columns"
+                  className="text-sm font-bold underline underline-offset-4"
+                >
+                  내 차칼럼
+                </Link>
+              </dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">공개한 독서기록</dt>
               <dd className="text-xl font-bold tabular-nums">
                 {publicLogs.count ?? 0} / {logs.count ?? 0}편
               </dd>
-              <Link
-                href="/me/reading"
-                className="text-sm font-bold underline underline-offset-4"
-              >
-                내 서재
-              </Link>
+              <dd>
+                <Link
+                  href="/me/reading"
+                  className="text-sm font-bold underline underline-offset-4"
+                >
+                  내 서재
+                </Link>
+              </dd>
             </div>
           </dl>
         </Card>

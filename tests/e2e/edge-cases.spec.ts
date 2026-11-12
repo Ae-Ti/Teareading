@@ -34,7 +34,7 @@ const noOverflow = (page: Page) =>
   );
 const crashed = (page: Page) =>
   page
-    .getByText(/Application error|This page couldn't load|Something went wrong/)
+    .getByText(/Application error|This page couldn.t load|Something went wrong/)
     .count();
 
 function watch(page: Page) {
@@ -484,6 +484,8 @@ test("찻집: 잠깐 끊겼다가 다시 연결되면 서로 보인다", async (
     timeout: 30_000,
   });
   expect(errors).toEqual([]);
+  // 닫지 않으면 B가 뒤 시험의 찻집에 계속 남아 캐릭터 클릭을 가로챈다
+  await b.context().close();
 });
 
 test("사진·파일 입력의 경계", async ({ page }) => {

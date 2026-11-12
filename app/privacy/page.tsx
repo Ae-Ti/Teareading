@@ -16,7 +16,12 @@ const sections: LegalSection[] = [
     title: "수집하는 개인정보 항목",
     body: (
       <>
-        <div className="legal-table">
+        <div
+          className="legal-table"
+          tabIndex={0}
+          role="region"
+          aria-label="수집하는 개인정보 항목 표"
+        >
           <table>
             <thead>
               <tr>
@@ -194,7 +199,12 @@ const sections: LegalSection[] = [
           서비스 운영을 위해 아래 클라우드 서비스를 이용하며, 이 과정에서
           개인정보가 해당 업체의 서버에 저장되거나 전송됩니다.
         </p>
-        <div className="legal-table">
+        <div
+          className="legal-table"
+          tabIndex={0}
+          role="region"
+          aria-label="처리 위탁과 국외 이전 표"
+        >
           <table>
             <thead>
               <tr>
