@@ -163,21 +163,23 @@ test("검증·연결 실패·재시도와 작은 화면 접근성을 확인한�
     .locator("form:visible")
     .getByLabel("비밀번호", { exact: true })
     .fill("kept-password");
-  await page.route("**/login?**", async (route) => {
-    if (route.request().method() === "POST") await route.abort("failed");
-    else await route.continue();
-  });
+  // 브라우저와 앱 서버 사이가 끊기면(experimental.useOffline) 오류로 버리지 않고
+  // 끊김 안내를 띄운 채 기다렸다가, 다시 연결되면 한 번 보낸다. 입력값은 그대로다.
+  await page.context().setOffline(true);
   await page.getByRole("button", { name: "로그인", exact: true }).click();
-  await expect(page.locator("form:visible").getByRole("alert")).toContainText(
-    "인증 서비스에 연결하지 못했어요",
-  );
+  await expect(
+    page.getByRole("status").filter({ hasText: "연결이 끊겼어요" }),
+  ).toBeVisible();
   await expect(
     page.locator("form:visible").getByLabel("비밀번호", { exact: true }),
   ).toHaveValue("kept-password");
+  await page.context().setOffline(false);
+  await expect(
+    page.getByRole("status").filter({ hasText: "연결이 끊겼어요" }),
+  ).toHaveCount(0, { timeout: 15_000 });
   await expect(
     page.getByRole("button", { name: "로그인", exact: true }),
-  ).toBeEnabled();
-  await page.unrouteAll();
+  ).toBeEnabled({ timeout: 15_000 });
 
   await page.goto("/groups/private.png");
   await expect(page).toHaveURL(/\/login\?next=/);

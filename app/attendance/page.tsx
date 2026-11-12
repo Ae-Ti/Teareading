@@ -176,13 +176,14 @@ async function Attendance({
                     ? `${record.sessions}회 · ${formatDuration(record.focus_seconds)}`
                     : undefined
                 }
+                role="img"
                 aria-label={`${Number(day.slice(8))}일 ${record ? "출석" : "미출석"}`}
                 className={cn(
                   "flex aspect-square flex-col items-center justify-center rounded-sm border-2 text-sm",
                   record
                     ? "border-ink bg-matcha font-bold"
                     : "border-ink-subtle/50",
-                  day > today && "opacity-40",
+                  day > today && "text-ink-subtle",
                   isToday && "border-ink shadow-hard-sm",
                 )}
               >

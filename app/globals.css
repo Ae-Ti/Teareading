@@ -12,7 +12,7 @@
   --tr-surface-sunken: #ece7d9;
   --tr-ink: #1f1d17; /* 먹 */
   --tr-ink-muted: #6b6558;
-  --tr-ink-subtle: #9a9384;
+  --tr-ink-subtle: #736d5f; /* 글자로 써도 바탕(한지·흰색) 대비 4.5:1 이상 */
 
   /* 브랜드 */
   --tr-matcha: #b5d99c; /* 주 색 */

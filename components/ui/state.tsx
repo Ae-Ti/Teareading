@@ -43,6 +43,7 @@ export function StateMessage({
 export function LoadingBlock({ className }: { className?: string }) {
   return (
     <div
+      role="status"
       aria-busy
       aria-label="불러오는 중"
       className={cn(
