@@ -5,7 +5,11 @@ import type { Dir, Point } from "@/lib/space/map";
 export const SPACE_CHANNEL = "space:teahouse";
 
 // 공용 공간마다 채널을 따로 쓴다. 대시보드의 인원 표시는 찻집(SPACE_CHANNEL) 기준이다.
+// 공용 채널은 "누가 있다"는 Presence만 오간다 (누구나 꾸밀 수 있는 힌트).
 export const spaceChannel = (mapId: string) => `space:${mapId}`;
+// 개인 채널: 본인만 보낼 수 있다 (20261113000100_space_user_topics.sql). 위치·상태·이동은 여기로.
+export const userChannel = (mapId: string, userId: string) =>
+  `space:${mapId}:u:${userId}`;
 
 export type SpacePresence = {
   user_id: string;

@@ -2,29 +2,59 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { SPACE_CHANNEL, type SpacePresence } from "./presence";
+import { SpaceDirectory } from "./space-directory";
 
-// 찻집에 입장하지 않고 지금 몇 명이 있는지만 본다 (track 하지 않음)
+type Peek = { user_id: string; nickname: string };
+
+// 찻집에 입장하지 않고 지금 누가 있는지만 본다 (track 하지 않음).
+// 본인 채널에서 확인한 사람만 세고, 닉네임은 DB에서 읽는다 (space-directory.ts).
 export function useSpacePeek() {
-  const [people, setPeople] = useState<SpacePresence[] | null>(null);
+  const [people, setPeople] = useState<Peek[] | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
-    const channel = supabase.channel(SPACE_CHANNEL, {
-      config: { private: true },
-    });
+    const present = new Set<string>();
+    const names = new Map<string, string>();
+    let ready = false;
     let active = true;
-    channel.on("presence", { event: "sync" }, () => {
-      const state = channel.presenceState<SpacePresence>();
-      setPeople(Object.values(state).map((metas) => metas[0]));
+    const publish = () => {
+      if (!active || !ready) return;
+      setPeople(
+        [...present]
+          .filter((id) => names.has(id))
+          .map((id) => ({ user_id: id, nickname: names.get(id)! })),
+      );
+    };
+    const directory = new SpaceDirectory(supabase, "teahouse", null, {
+      onState: (id, state) => {
+        if (!state) present.delete(id);
+        else {
+          present.add(id);
+          if (!names.has(id))
+            void supabase
+              .from("profiles")
+              .select("nickname")
+              .eq("id", id)
+              .maybeSingle()
+              .then(({ data }) => {
+                if (data) names.set(id, data.nickname);
+                publish();
+              });
+        }
+        publish();
+      },
+      onLive: () => {},
+      onMove: () => {},
+      onStatus: (s) => {
+        if (s !== "SUBSCRIBED") return;
+        ready = true;
+        publish();
+      },
     });
-    // 비공개 채널은 로그인 토큰이 있어야 해서, 토큰을 넘긴 뒤 연결한다
-    void supabase.realtime.setAuth().finally(() => {
-      if (active) channel.subscribe();
-    });
+    directory.start();
     return () => {
       active = false;
-      void supabase.removeChannel(channel);
+      directory.stop();
     };
   }, []);
 
