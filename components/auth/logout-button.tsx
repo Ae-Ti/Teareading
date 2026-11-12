@@ -1,36 +1,28 @@
 "use client";
 
-import { useActionState } from "react";
-import { unstable_rethrow } from "next/navigation";
-import { logout } from "@/app/auth/actions";
-import { INITIAL_AUTH_STATE, SERVICE_ERROR } from "@/lib/auth/forms";
+import { useState } from "react";
 
-// 디자인 셸/내 프로필에서 이 컴포넌트를 가져다 사용할 수 있다.
+// 로그아웃은 페이지 이동으로 보낸다 (app/auth/logout/route.ts).
+// 브라우저가 화면을 새로 불러와 이전 사용자의 화면 캐시가 남지 않는다.
 export function LogoutButton({
   variant = "page",
 }: {
   variant?: "page" | "nav";
 }) {
-  const [state, action, pending] = useActionState(async () => {
-    try {
-      return await logout();
-    } catch (error) {
-      unstable_rethrow(error);
-      return { status: "error" as const, message: SERVICE_ERROR };
-    }
-  }, INITIAL_AUTH_STATE);
-
+  const [pending, setPending] = useState(false);
   const nav = variant === "nav";
 
   return (
     <form
-      action={action}
+      method="post"
+      action="/auth/logout"
+      onSubmit={() => setPending(true)}
       aria-busy={pending}
       className={nav ? "relative" : "my-6"}
     >
       <button
         type="submit"
-        disabled={pending || state.status === "success"}
+        disabled={pending}
         className={
           nav
             ? "rounded-md border-2 border-transparent px-2 py-1 whitespace-nowrap text-ink-muted hover:bg-sunken hover:text-ink disabled:opacity-60 md:px-2.5 md:text-ink"
@@ -39,26 +31,6 @@ export function LogoutButton({
       >
         {pending && !nav ? "로그아웃하는 중…" : "로그아웃"}
       </button>
-      {state.message && (
-        <p
-          role={state.status === "error" ? "alert" : "status"}
-          className={
-            nav
-              ? "absolute top-full right-0 z-40 mt-2 w-56 rounded-md border-2 border-ink bg-surface p-2 text-xs shadow-hard-sm"
-              : "mt-3 text-sm"
-          }
-        >
-          {state.message}
-        </p>
-      )}
-      {state.redirectTo && (
-        <a
-          href={state.redirectTo}
-          className={nav ? "sr-only" : "mt-3 inline-block underline"}
-        >
-          로그인 화면으로
-        </a>
-      )}
     </form>
   );
 }

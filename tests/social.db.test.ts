@@ -263,6 +263,16 @@ test("소셜 기능 권한과 동작", async (t) => {
       "rejected",
     );
 
+    // 거절된 요청은 24시간 동안 다시 보낼 수 없다
+    const again = await send(a, "dm", c.id);
+    assert.equal(again.error?.hint, "cooldown");
+    await admin
+      .from("live_requests")
+      .update({
+        responded_at: new Date(Date.now() - 25 * 3600 * 1000).toISOString(),
+      })
+      .eq("id", idOf(reject));
+
     const old = await send(a, "dm", c.id);
     await admin
       .from("live_requests")
@@ -348,7 +358,10 @@ test("소셜 기능 권한과 동작", async (t) => {
     assert.equal((await send(a, "dm", a.id)).error?.code, "22023");
     await a.c.from("blocks").insert({ blocker_id: a.id, blocked_id: b.id });
     const blocked = await send(b, "dm", a.id);
-    assert.equal(blocked.error?.hint, "blocked");
+    // 차단당한 쪽에는 차단 사실을 드러내지 않는다
+    assert.equal(blocked.error?.hint, "unavailable");
+    const mine = await send(a, "dm", b.id);
+    assert.equal(mine.error?.hint, "blocked");
     await a.c
       .from("blocks")
       .delete()

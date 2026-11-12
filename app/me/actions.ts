@@ -12,6 +12,7 @@ import {
   type RecordKind,
 } from "@/lib/records";
 import { requireUser } from "@/lib/supabase/user";
+import { hasVisibleText } from "@/lib/text";
 import { track, type Device } from "@/lib/track";
 
 export type RecordFormState = {
@@ -55,10 +56,12 @@ export async function saveRecord(
   const values = { title, body, pages, teaType, isPublic };
 
   const errors: RecordFormState["errors"] = {};
-  if (!title) errors.title = `${config.titleLabel}을 입력해 주세요.`;
+  if (!hasVisibleText(title))
+    errors.title = `${config.titleLabel}을 입력해 주세요.`;
   else if (title.length > TITLE_MAX)
     errors.title = `${TITLE_MAX}자 이내로 입력해 주세요.`;
-  if (!body) errors.body = `${config.bodyLabel}을 입력해 주세요.`;
+  if (!hasVisibleText(body))
+    errors.body = `${config.bodyLabel}을 입력해 주세요.`;
   else if (body.length > BODY_MAX)
     errors.body = `${BODY_MAX.toLocaleString()}자 이내로 입력해 주세요.`;
   if (

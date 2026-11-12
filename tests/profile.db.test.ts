@@ -210,7 +210,14 @@ test("실제 프로필·아바타 저장과 계정별 권한·공개 범위", as
         assert.ok(profile.data);
         assert.deepEqual(
           Object.keys(profile.data).sort(),
-          ["id", "nickname", "bio", "avatar_url", "created_at"].sort(),
+          [
+            "id",
+            "nickname",
+            "bio",
+            "avatar_url",
+            "created_at",
+            "is_public",
+          ].sort(),
         );
         assert.equal(JSON.stringify(profile.data).includes(privateBody), false);
         const groups = await getProfileGroups(b, idA);

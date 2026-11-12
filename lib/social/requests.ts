@@ -18,7 +18,12 @@ function sendError(
   kind: RequestKind,
   error: { code?: string; hint?: string | null },
 ) {
-  if (error.hint === "blocked") return "차단 관계에서는 요청을 보낼 수 없어요.";
+  if (error.hint === "blocked")
+    return "차단한 회원이에요. 차단을 해제하면 요청을 보낼 수 있어요.";
+  // 상대가 나를 차단했는지는 알리지 않는다
+  if (error.hint === "unavailable") return "지금은 요청을 보낼 수 없어요.";
+  if (error.hint === "cooldown")
+    return "거절된 요청은 하루 뒤에 다시 보낼 수 있어요.";
   if (kind === "group_join" && error.code === "42501")
     return "이 모임에는 들어갈 수 없어요.";
   if (kind === "group_join" && error.code === "22023")
