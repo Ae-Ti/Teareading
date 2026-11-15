@@ -111,7 +111,7 @@ function BookForm({
   const toggle = (g: Genre) =>
     setGenres((s) => (s.includes(g) ? s.filter((x) => x !== g) : [...s, g]));
   const pill =
-    "cursor-pointer rounded-full border-2 border-ink px-3 py-1 text-sm font-bold has-focus-visible:outline-3 has-focus-visible:outline-yuja";
+    "cursor-pointer rounded-full border-2 border-ink px-3 py-1 text-sm font-bold has-focus-visible:outline-3 has-focus-visible:outline-matcha-strong";
 
   return (
     <form action={action} className="flex flex-col gap-4" noValidate>

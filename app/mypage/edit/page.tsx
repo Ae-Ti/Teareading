@@ -24,7 +24,7 @@ async function EditProfile() {
     .maybeSingle();
   return (
     <div className="mx-auto max-w-2xl space-y-6 py-8 md:py-10">
-      <h1 className="text-3xl font-bold">프로필 수정</h1>
+      <h1 className="text-2xl font-bold md:text-3xl">프로필 수정</h1>
       {result.error || !result.data ? (
         <StateMessage
           tone="error"

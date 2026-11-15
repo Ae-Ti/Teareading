@@ -41,7 +41,7 @@ export function ProfileVisibility({
       ].map((option) => (
         <label
           key={option.label}
-          className="cursor-pointer rounded-md border-2 border-ink px-2.5 py-0.5 text-sm font-bold has-checked:bg-matcha has-focus-visible:outline-3 has-focus-visible:outline-yuja"
+          className="cursor-pointer rounded-md border-2 border-ink px-2.5 py-0.5 text-sm font-bold has-checked:bg-matcha has-focus-visible:outline-3 has-focus-visible:outline-matcha-strong"
         >
           <input
             type="radio"

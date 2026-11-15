@@ -30,7 +30,7 @@ export default function Page(props: PageProps<"/board">) {
     <div className="flex flex-col gap-6 py-6 md:py-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold md:text-4xl">게시판</h1>
+          <h1 className="text-2xl font-bold md:text-3xl">게시판</h1>
           <p className="text-sm text-ink-muted">
             책과 차 이야기를 자유롭게 나눠요.
           </p>

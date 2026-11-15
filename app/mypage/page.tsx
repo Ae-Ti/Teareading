@@ -38,7 +38,7 @@ async function MyPage() {
   ]);
   return (
     <div className="mx-auto max-w-3xl space-y-7 py-8 md:py-10">
-      <h1 className="text-3xl font-bold">내 프로필</h1>
+      <h1 className="text-2xl font-bold md:text-3xl">내 프로필</h1>
       {profile.error || !profile.data ? (
         <StateMessage
           tone="error"

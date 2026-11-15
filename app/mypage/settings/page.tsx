@@ -10,7 +10,7 @@ export const metadata = { title: "개인 설정 · 티어리딩" };
 export default function Page() {
   return (
     <div className="mx-auto max-w-3xl space-y-7 py-8 md:py-10">
-      <h1 className="text-3xl font-bold">개인 설정</h1>
+      <h1 className="text-2xl font-bold md:text-3xl">개인 설정</h1>
       <Suspense fallback={<LoadingBlock className="h-64" />}>
         <Settings />
       </Suspense>

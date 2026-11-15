@@ -16,7 +16,7 @@ export default function Page() {
       >
         ← 내 프로필
       </Link>
-      <h1 className="text-3xl font-bold">회원 탈퇴</h1>
+      <h1 className="text-2xl font-bold md:text-3xl">회원 탈퇴</h1>
       <Suspense fallback={<LoadingBlock className="h-80" />}>
         <DeleteAccount />
       </Suspense>
