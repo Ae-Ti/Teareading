@@ -22,7 +22,7 @@ export default function Page() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 py-6 md:py-10">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold md:text-4xl">메시지</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">메시지</h1>
         <p className="text-sm text-ink-muted">
           모임 단체 채팅방과 1:1 대화를 한곳에서 확인해요.
         </p>

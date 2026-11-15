@@ -75,8 +75,21 @@ body {
 }
 
 :focus-visible {
-  outline: 3px solid var(--tr-yuja);
+  /* 진한 말차: 한지·흰 바탕 모두에서 3:1 이상 보인다 (유자색은 약 1.3:1이라 잘 안 보였다) */
+  outline: 3px solid var(--tr-matcha-strong);
   outline-offset: 2px;
+}
+
+/* 움직임 줄이기 설정을 켠 사람에게는 전환·회전 효과를 끈다 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* 시안 비교용 B안: 한글 제목은 고딕, 숫자(tabular-nums를 쓰는 타이머 등)만 고정폭 */

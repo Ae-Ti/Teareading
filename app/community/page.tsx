@@ -19,14 +19,14 @@ export const metadata = { title: "커뮤니티 · 티어리딩" };
 export default function Page(props: PageProps<"/community">) {
   return (
     <div className="flex flex-col gap-6 py-6 md:py-10">
-      <div className="flex items-end justify-between gap-4">
-        <div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold md:text-3xl">커뮤니티</h1>
           <p className="text-sm text-ink-muted">
             차와 책을 좋아하는 사람들의 모임을 찾아보세요.
           </p>
         </div>
-        <LinkButton href="/groups/new" size="sm" className="shrink-0">
+        <LinkButton href="/groups/new" className="shrink-0">
           모임 만들기
         </LinkButton>
       </div>

@@ -20,7 +20,7 @@ export default async function Page() {
         <Badge tone="yuja" className="self-start">
           입문자용
         </Badge>
-        <h1 className="text-2xl font-bold md:text-4xl">다도 입문 가이드</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">다도 입문 가이드</h1>
         <p className="max-w-2xl text-ink-muted">
           차를 처음 우려 보는 분을 위한 기본 안내예요. 순서대로 읽어도 좋고,
           궁금한 것부터 골라 읽어도 좋아요.
